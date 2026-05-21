@@ -1,0 +1,182 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 36 33% 97%;
+    --foreground: 25 25% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 25 25% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 25% 14%;
+
+    --primary: 16 78% 46%;
+    --primary-foreground: 36 33% 97%;
+
+    --secondary: 36 18% 92%;
+    --secondary-foreground: 25 25% 14%;
+
+    --muted: 36 16% 92%;
+    --muted-foreground: 25 12% 42%;
+
+    --accent: 36 22% 90%;
+    --accent-foreground: 25 25% 14%;
+
+    --destructive: 0 78% 46%;
+    --destructive-foreground: 36 33% 97%;
+
+    --border: 30 14% 86%;
+    --input: 30 14% 86%;
+    --ring: 16 78% 46%;
+
+    --radius: 0.75rem;
+
+    --cuisine-italian: 8 70% 55%;
+    --cuisine-mexican: 28 85% 55%;
+    --cuisine-asian: 158 55% 42%;
+    --cuisine-indian: 36 80% 50%;
+    --cuisine-mediterranean: 195 60% 45%;
+    --cuisine-american: 215 50% 50%;
+    --cuisine-french: 270 40% 55%;
+    --cuisine-middleeastern: 340 55% 50%;
+    --cuisine-other: 30 8% 50%;
+  }
+
+  .dark {
+    --background: 25 18% 9%;
+    --foreground: 36 18% 92%;
+
+    --card: 25 16% 12%;
+    --card-foreground: 36 18% 92%;
+
+    --popover: 25 16% 12%;
+    --popover-foreground: 36 18% 92%;
+
+    --primary: 16 80% 58%;
+    --primary-foreground: 25 18% 9%;
+
+    --secondary: 25 12% 18%;
+    --secondary-foreground: 36 18% 92%;
+
+    --muted: 25 12% 18%;
+    --muted-foreground: 36 10% 64%;
+
+    --accent: 25 12% 22%;
+    --accent-foreground: 36 18% 92%;
+
+    --destructive: 0 70% 56%;
+    --destructive-foreground: 36 18% 92%;
+
+    --border: 25 12% 22%;
+    --input: 25 12% 22%;
+    --ring: 16 80% 58%;
+
+    --cuisine-italian: 8 65% 60%;
+    --cuisine-mexican: 28 80% 60%;
+    --cuisine-asian: 158 50% 55%;
+    --cuisine-indian: 36 75% 60%;
+    --cuisine-mediterranean: 195 55% 60%;
+    --cuisine-american: 215 50% 65%;
+    --cuisine-french: 270 45% 65%;
+    --cuisine-middleeastern: 340 55% 65%;
+    --cuisine-other: 30 8% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: theme("fontFamily.sans");
+    font-feature-settings:
+      "ss01" 1,
+      "cv11" 1;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: theme("fontFamily.display");
+    letter-spacing: -0.01em;
+  }
+  ::selection {
+    background: hsl(var(--primary) / 0.2);
+  }
+}
+
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+  .drag {
+    -webkit-app-region: drag;
+  }
+}
+
+/* Print: drop the chrome (sidebar, top bar, controls) and emit a clean recipe
+   page in black ink on white. The recipe detail route opts in by tagging its
+   wrapping element with `data-print-root`. */
+@media print {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 0%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    --muted: 0 0% 100%;
+    --muted-foreground: 0 0% 30%;
+    --border: 0 0% 80%;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  /* Hide everything by default; the recipe page un-hides only what it wants
+     printed via the data-print-keep marker. */
+  body * {
+    visibility: hidden;
+  }
+  [data-print-root],
+  [data-print-root] * {
+    visibility: visible;
+  }
+  [data-print-root] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  [data-print-hide] {
+    display: none !important;
+  }
+  /* Force light background and crisp typography for paper. */
+  [data-print-root] img {
+    max-height: 200px;
+    object-fit: cover;
+  }
+  /* Avoid awkward column splits in print layouts. */
+  [data-print-root] section {
+    break-inside: avoid;
+  }
+}
+

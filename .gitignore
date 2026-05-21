@@ -1,0 +1,22 @@
+node_modules/
+dist/
+dist-ssr/
+dist-mac/
+.DS_Store
+.env*
+*.log
+
+# TypeScript incremental build metadata
+*.tsbuildinfo
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# Generated icon working dir
+src-tauri/icons/paperplate.iconset/
+src-tauri/icons/icon-1024.png
+
+# Built installers (re-buildable from source)
+*.dmg
+*.dmg.zip

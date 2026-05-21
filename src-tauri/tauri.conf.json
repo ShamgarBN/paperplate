@@ -1,0 +1,53 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Paperplate",
+  "version": "0.1.0",
+  "identifier": "com.paperplate.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Paperplate",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 960,
+        "minHeight": 640,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "decorations": true,
+        "resizable": true,
+        "fullscreen": false,
+        "trafficLightPosition": { "x": 18, "y": 18 }
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self' tauri: https://fonts.gstatic.com; img-src 'self' tauri: asset: data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' tauri: ipc: http://ipc.localhost https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self'",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/**", "$APPLOCALDATA/**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Local-first recipe book and meal planner.",
+    "longDescription": "Paperplate is a personal, locally-stored recipe book that scrapes recipes from the web, scales servings, plans meals on a flexible calendar, and produces consolidated shopping lists.",
+    "macOS": {
+      "minimumSystemVersion": "11.0",
+      "signingIdentity": "-"
+    }
+  }
+}
