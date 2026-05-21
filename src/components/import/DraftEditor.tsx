@@ -21,7 +21,7 @@ import {
   IngredientReviewer,
   type ReviewableIngredient,
 } from "@/components/import/IngredientReviewer";
-import { StepReviewer } from "@/components/import/StepReviewer";
+import { StepReviewer, type StepDraft } from "@/components/import/StepReviewer";
 import type { Category } from "@/lib/db/schema";
 
 /**
@@ -38,10 +38,13 @@ export interface DraftState {
   cookMin: number | null;
   totalMin: number | null;
   difficulty: "easy" | "medium" | "hard" | null;
+  /** Source-derived recipe blurb, shown above the ingredients. */
+  description: string;
+  /** Cook's tasting notes, shown at the bottom of the recipe page. */
   notes: string;
   rawHtml: string | null;
   ingredients: ReviewableIngredient[];
-  steps: string[];
+  steps: StepDraft[];
   selectedCategoryIds: Set<number>;
 }
 
@@ -55,6 +58,7 @@ export const blankDraft = (): DraftState => ({
   cookMin: null,
   totalMin: null,
   difficulty: null,
+  description: "",
   notes: "",
   rawHtml: null,
   ingredients: [],
@@ -253,13 +257,37 @@ export function DraftEditor({
 
       <Card>
         <CardContent className="space-y-3 p-6">
-          <h3 className="font-display text-lg">Notes</h3>
+          <div className="flex items-baseline justify-between">
+            <h3 className="font-display text-lg">Description</h3>
+            <span className="text-xs text-muted-foreground">
+              Short blurb shown at the top of the recipe page.
+            </span>
+          </div>
+          <Textarea
+            value={draft.description}
+            onChange={(e) =>
+              setDraft((d) => ({ ...d, description: e.target.value }))
+            }
+            placeholder="A bright, summery weeknight pasta..."
+            rows={3}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="space-y-3 p-6">
+          <div className="flex items-baseline justify-between">
+            <h3 className="font-display text-lg">Notes</h3>
+            <span className="text-xs text-muted-foreground">
+              Personal cooking notes — shown at the bottom of the recipe page.
+            </span>
+          </div>
           <Textarea
             value={draft.notes}
             onChange={(e) =>
               setDraft((d) => ({ ...d, notes: e.target.value }))
             }
-            placeholder="Personal notes, swaps, occasions..."
+            placeholder="Tweaks for next time, swaps, occasions..."
             rows={3}
           />
         </CardContent>

@@ -30,28 +30,85 @@ import {
   generateGlobalShoppingList,
   removeExtraItem,
   removeRecipeFromShoppingList,
+  setExtraItemAisle,
   setItemChecked,
   extractExtraId,
+  updateRecipeScaledServings,
 } from "@/lib/db/globalShoppingRepo";
+import { listAisles, setIngredientAisle } from "@/lib/db/aisleRepo";
 import { toPlainText, type ShoppingItem } from "@/lib/shopping";
 import { printCurrentWindow } from "@/lib/print";
 import { cn } from "@/lib/cn";
 
 /**
- * Aisles offered in the "add an item" form. Matches the canonical aisle
- * order used elsewhere so the manually added item lands next to similar
- * recipe-derived ingredients.
+ * Preset scale factors the shopping list exposes per recipe. The list
+ * starts smaller-than-one for "I only need half this recipe" and goes up
+ * to 4× because cooks rarely scale higher in a single pass — at that
+ * point you'd duplicate the recipe instead. The numeric `value` is the
+ * factor used in `baseServings * value`; `label` is the user-visible
+ * "1x / 2x / ½x" string.
  */
-const AISLE_OPTIONS = [
-  "Produce",
-  "Meat & Seafood",
-  "Dairy & Eggs",
+const MULTIPLIER_PRESETS: Array<{ label: string; value: number }> = [
+  { label: "¼×", value: 0.25 },
+  { label: "⅓×", value: 1 / 3 },
+  { label: "½×", value: 0.5 },
+  { label: "1×", value: 1 },
+  { label: "2×", value: 2 },
+  { label: "3×", value: 3 },
+  { label: "4×", value: 4 },
+];
+
+/**
+ * Snap an arbitrary multiplier to the closest preset so the `<Select>`
+ * has a stable controlled value. Without this an off-grid value (e.g.
+ * 1.6 from manually editing servings) would render the trigger as blank.
+ */
+function pickMultiplierPreset(multiplier: number): string {
+  if (!Number.isFinite(multiplier) || multiplier <= 0) return "1";
+  let closest = MULTIPLIER_PRESETS[0]!;
+  let bestDist = Math.abs(multiplier - closest.value);
+  for (const preset of MULTIPLIER_PRESETS) {
+    const d = Math.abs(multiplier - preset.value);
+    if (d < bestDist) {
+      bestDist = d;
+      closest = preset;
+    }
+  }
+  return String(closest.value);
+}
+
+/**
+ * Format a multiplier as a short tag for the recipe-row metadata. Falls
+ * back to a single-decimal representation if the value isn't a preset,
+ * so a user-edited "12 servings of a 5-serving recipe" reads "2.4×"
+ * rather than rounding silently to "2×".
+ */
+function formatMultiplierLabel(multiplier: number): string {
+  if (!Number.isFinite(multiplier) || multiplier <= 0) return "1×";
+  const preset = MULTIPLIER_PRESETS.find(
+    (p) => Math.abs(p.value - multiplier) < 0.02,
+  );
+  if (preset) return preset.label;
+  // Trim trailing zeros so "1.50×" reads as "1.5×".
+  return `${multiplier.toFixed(2).replace(/\.?0+$/, "")}×`;
+}
+
+/**
+ * Default fallback aisle list — only used if the database hasn't been
+ * populated yet (shouldn't happen in practice because the seeder runs
+ * on first launch, but we keep it as a safety net so the picker never
+ * renders empty).
+ */
+const FALLBACK_AISLE_OPTIONS = [
   "Bakery",
-  "Pantry & Dry Goods",
-  "Spices & Oils",
-  "Frozen",
   "Beverages",
+  "Dairy & Eggs",
+  "Frozen",
+  "Meat & Seafood",
   "Other",
+  "Pantry & Dry Goods",
+  "Produce",
+  "Spices & Oils",
 ];
 
 export function GlobalShoppingRoute() {
@@ -60,6 +117,14 @@ export function GlobalShoppingRoute() {
     queryKey: ["global-shopping"],
     queryFn: generateGlobalShoppingList,
   });
+  const aislesQuery = useQuery({
+    queryKey: ["aisles"],
+    queryFn: listAisles,
+  });
+  const aisleOptions =
+    aislesQuery.data && aislesQuery.data.length > 0
+      ? aislesQuery.data.map((a) => a.name)
+      : FALLBACK_AISLE_OPTIONS;
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["global-shopping"] });
@@ -77,9 +142,52 @@ export function GlobalShoppingRoute() {
       toast.success("Recipe removed from list.");
     },
   });
+  const scaleRecipeMutation = useMutation({
+    mutationFn: async (params: { entryId: number; scaledServings: number }) =>
+      updateRecipeScaledServings(params.entryId, params.scaledServings),
+    onSuccess: () => {
+      refresh();
+      toast.success("Recipe scaling updated.");
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not change scaling: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+  });
   const removeExtraMutation = useMutation({
     mutationFn: async (id: number) => removeExtraItem(id),
     onSuccess: refresh,
+  });
+  const reassignAisleMutation = useMutation({
+    mutationFn: async (params: {
+      itemId: string;
+      itemCanonical: string;
+      aisleName: string;
+    }) => {
+      const extraId = extractExtraId(params.itemId);
+      if (extraId != null) {
+        // Standalone item: the aisle lives directly on the row.
+        await setExtraItemAisle(extraId, params.aisleName);
+        return;
+      }
+      // Aggregate item: persist the override so future imports of the
+      // same canonical ingredient also land in the chosen aisle.
+      const ok = await setIngredientAisle(
+        params.itemCanonical,
+        params.aisleName,
+      );
+      if (!ok) {
+        throw new Error(`Aisle "${params.aisleName}" no longer exists`);
+      }
+    },
+    onSuccess: () => {
+      refresh();
+      toast.success("Aisle updated.");
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not move item: ${err instanceof Error ? err.message : String(err)}`,
+      ),
   });
   const clearCheckedMutation = useMutation({
     mutationFn: async () => clearCheckedExtraItems(),
@@ -124,7 +232,7 @@ export function GlobalShoppingRoute() {
         data-print-hide
       >
         <h1 className="font-display text-3xl font-medium tracking-tight">
-          Shopping list
+          Shopping List
         </h1>
         <div className="flex items-center gap-2">
           <Button
@@ -174,6 +282,7 @@ export function GlobalShoppingRoute() {
         <CardContent className="space-y-3 p-4">
           <h2 className="font-display text-lg">Add an item</h2>
           <AddItemForm
+            aisleOptions={aisleOptions}
             onAdd={async (input) => {
               try {
                 await addExtraItem(input);
@@ -194,33 +303,74 @@ export function GlobalShoppingRoute() {
           <CardContent className="space-y-2 p-4">
             <h2 className="font-display text-lg">Recipes on this list</h2>
             <ul className="space-y-1.5">
-              {recipes.map((entry) => (
-                <li
-                  key={entry.entryId}
-                  className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-accent/40"
-                >
-                  <Link
-                    to="/recipes/$recipeId"
-                    params={{ recipeId: String(entry.recipe.id) }}
-                    className="flex-1 text-sm hover:underline"
+              {recipes.map((entry) => {
+                const baseServings = entry.recipe.base_servings;
+                const multiplier =
+                  baseServings > 0 ? entry.scaledServings / baseServings : 1;
+                return (
+                  <li
+                    key={entry.entryId}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-accent/40"
                   >
-                    {entry.recipe.title}
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {entry.scaledServings} serving
-                      {entry.scaledServings === 1 ? "" : "s"}
-                    </span>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={`Remove ${entry.recipe.title}`}
-                    onClick={() => removeRecipeMutation.mutate(entry.entryId)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </li>
-              ))}
+                    <Link
+                      to="/recipes/$recipeId"
+                      params={{ recipeId: String(entry.recipe.id) }}
+                      className="flex-1 text-sm hover:underline"
+                    >
+                      {entry.recipe.title}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {formatMultiplierLabel(multiplier)} ·{" "}
+                        {entry.scaledServings} serving
+                        {entry.scaledServings === 1 ? "" : "s"}
+                      </span>
+                    </Link>
+                    <Select
+                      value={pickMultiplierPreset(multiplier)}
+                      onValueChange={(next) => {
+                        const factor = Number(next);
+                        if (!Number.isFinite(factor) || factor <= 0) return;
+                        scaleRecipeMutation.mutate({
+                          entryId: entry.entryId,
+                          scaledServings: Math.max(
+                            1,
+                            Math.round(baseServings * factor),
+                          ),
+                        });
+                      }}
+                    >
+                      <SelectTrigger
+                        aria-label={`Adjust scaling for ${entry.recipe.title}`}
+                        className="h-8 w-24 text-xs"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MULTIPLIER_PRESETS.map((preset) => (
+                          <SelectItem
+                            key={preset.value}
+                            value={String(preset.value)}
+                          >
+                            {preset.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${entry.recipe.title}`}
+                      onClick={() => removeRecipeMutation.mutate(entry.entryId)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
+            <p className="px-2 text-[11px] text-muted-foreground">
+              The multiplier scales how much of each ingredient lands on the
+              list — handy when you're prepping multiple batches.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -250,6 +400,7 @@ export function GlobalShoppingRoute() {
                     key={item.id}
                     item={item}
                     checked={!!checked[item.id]}
+                    aisleOptions={aisleOptions}
                     onToggle={() => onToggle(item.id)}
                     onRemoveExtra={() => {
                       const numericId = extractExtraId(item.id);
@@ -257,6 +408,13 @@ export function GlobalShoppingRoute() {
                         removeExtraMutation.mutate(numericId);
                       }
                     }}
+                    onReassignAisle={(nextAisle) =>
+                      reassignAisleMutation.mutate({
+                        itemId: item.id,
+                        itemCanonical: item.itemCanonical,
+                        aisleName: nextAisle,
+                      })
+                    }
                   />
                 ))}
               </ul>
@@ -282,15 +440,25 @@ export function GlobalShoppingRoute() {
 function ShoppingRow({
   item,
   checked,
+  aisleOptions,
   onToggle,
   onRemoveExtra,
+  onReassignAisle,
 }: {
   item: ShoppingItem;
   checked: boolean;
+  aisleOptions: string[];
   onToggle: () => void;
   onRemoveExtra: () => void;
+  onReassignAisle: (next: string) => void;
 }) {
   const isExtra = item.id.startsWith("extra-");
+  // Make sure the row's current aisle is in the option list even if it's
+  // been deleted from settings — otherwise the picker would silently flip
+  // to the first option and look unset.
+  const options = aisleOptions.includes(item.aisle)
+    ? aisleOptions
+    : [...aisleOptions, item.aisle];
   return (
     <li
       className={cn(
@@ -327,6 +495,27 @@ function ShoppingRow({
             : ""}
         </span>
       )}
+      <Select
+        value={item.aisle}
+        onValueChange={(next) => {
+          if (next !== item.aisle) onReassignAisle(next);
+        }}
+      >
+        <SelectTrigger
+          aria-label={`Move ${item.itemDisplay} to a different aisle`}
+          className="h-7 w-[7.5rem] gap-1 border-none bg-transparent px-1.5 text-[11px] text-muted-foreground hover:bg-muted/60 hover:text-foreground focus:ring-1 print:hidden"
+          data-print-hide
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((a) => (
+            <SelectItem key={a} value={a}>
+              {a}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {isExtra && (
         <Button
           variant="ghost"
@@ -344,8 +533,10 @@ function ShoppingRow({
 }
 
 function AddItemForm({
+  aisleOptions,
   onAdd,
 }: {
+  aisleOptions: string[];
   onAdd: (input: {
     name: string;
     quantity: number | null;
@@ -356,7 +547,14 @@ function AddItemForm({
   const [name, setName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [unit, setUnit] = useState("");
-  const [aisle, setAisle] = useState("Other");
+  // Default to "Other" when it's present (it's the universal fallback);
+  // otherwise pick the alphabetical first entry so the picker is never
+  // unset.
+  const fallback =
+    aisleOptions.find((a) => a.toLowerCase() === "other") ??
+    aisleOptions[0] ??
+    "Other";
+  const [aisle, setAisle] = useState(fallback);
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
@@ -419,7 +617,7 @@ function AddItemForm({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {AISLE_OPTIONS.map((a) => (
+          {aisleOptions.map((a) => (
             <SelectItem key={a} value={a}>
               {a}
             </SelectItem>

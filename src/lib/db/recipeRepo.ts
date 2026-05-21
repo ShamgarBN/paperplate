@@ -18,6 +18,12 @@ export interface RecipeDraft {
   cook_min: number | null;
   total_min: number | null;
   difficulty: "easy" | "medium" | "hard" | null;
+  /**
+   * Source-derived recipe blurb (or user-authored description). Stored
+   * separately from `notes` so we don't clobber the cook's tasting
+   * notes with the scraper's output — see migration 5.
+   */
+  description: string | null;
   notes: string | null;
   raw_html: string | null;
   ingredients: Array<{
@@ -28,8 +34,14 @@ export interface RecipeDraft {
     item_display: string;
     preparation: string | null;
     is_optional: boolean;
+    /** Optional sub-recipe section label (e.g. "Cake", "Frosting"). */
+    section_name: string | null;
   }>;
-  steps: string[];
+  steps: Array<{
+    text: string;
+    /** Optional sub-recipe section label, matching the ingredient sections. */
+    section_name: string | null;
+  }>;
   categoryIds: number[];
 }
 
@@ -43,7 +55,7 @@ export interface RecipeWithDetails {
 export async function listCategories(): Promise<Category[]> {
   const db = await getDb();
   return db.select<Category[]>(
-    "SELECT id, kind, name, sort_order FROM categories ORDER BY kind, sort_order, name",
+    "SELECT id, kind, name, sort_order FROM categories ORDER BY kind, name COLLATE NOCASE ASC",
   );
 }
 
@@ -52,7 +64,7 @@ export async function listCategoriesByKind(
 ): Promise<Category[]> {
   const db = await getDb();
   return db.select<Category[]>(
-    "SELECT id, kind, name, sort_order FROM categories WHERE kind = $1 ORDER BY sort_order, name",
+    "SELECT id, kind, name, sort_order FROM categories WHERE kind = $1 ORDER BY name COLLATE NOCASE ASC",
     [kind],
   );
 }
@@ -62,8 +74,8 @@ export async function createRecipe(draft: RecipeDraft): Promise<number> {
     const db = await getDb();
     const result = await db.execute(
       `INSERT INTO recipes
-       (title, source_url, image_path, base_servings, prep_min, cook_min, total_min, difficulty, notes, raw_html)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+       (title, source_url, image_path, base_servings, prep_min, cook_min, total_min, difficulty, description, notes, raw_html)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [
         draft.title,
         draft.source_url,
@@ -73,6 +85,7 @@ export async function createRecipe(draft: RecipeDraft): Promise<number> {
         draft.cook_min,
         draft.total_min,
         draft.difficulty,
+        draft.description,
         draft.notes,
         draft.raw_html,
       ],
@@ -84,8 +97,8 @@ export async function createRecipe(draft: RecipeDraft): Promise<number> {
         const ing = draft.ingredients[i]!;
         await db.execute(
           `INSERT INTO recipe_ingredients
-           (recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, preparation, is_optional)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+           (recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, preparation, is_optional, section_name)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             recipeId,
             i,
@@ -96,14 +109,16 @@ export async function createRecipe(draft: RecipeDraft): Promise<number> {
             ing.item_display,
             ing.preparation,
             ing.is_optional ? 1 : 0,
+            ing.section_name,
           ],
         );
       }
 
       for (let i = 0; i < draft.steps.length; i++) {
+        const step = draft.steps[i]!;
         await db.execute(
-          `INSERT INTO recipe_steps (recipe_id, position, text) VALUES ($1, $2, $3)`,
-          [recipeId, i, draft.steps[i]!],
+          `INSERT INTO recipe_steps (recipe_id, position, text, section_name) VALUES ($1, $2, $3, $4)`,
+          [recipeId, i, step.text, step.section_name],
         );
       }
 
@@ -160,7 +175,7 @@ export async function getRecipe(
 export async function listRecipes(): Promise<Recipe[]> {
   const db = await getDb();
   return db.select<Recipe[]>(
-    "SELECT * FROM recipes ORDER BY created_at DESC",
+    "SELECT * FROM recipes ORDER BY title COLLATE NOCASE ASC, created_at DESC",
   );
 }
 
@@ -207,6 +222,7 @@ const RECIPE_UPDATE_COLUMNS = new Set([
   "cook_min",
   "total_min",
   "difficulty",
+  "description",
   "notes",
   "rating",
   "last_cooked_at",
@@ -224,6 +240,7 @@ export async function updateRecipe(
     cook_min: number | null;
     total_min: number | null;
     difficulty: "easy" | "medium" | "hard" | null;
+    description: string | null;
     notes: string | null;
     rating: number | null;
     last_cooked_at: string | null;
@@ -263,9 +280,10 @@ export async function updateRecipeFull(
          cook_min = $6,
          total_min = $7,
          difficulty = $8,
-         notes = $9,
+         description = $9,
+         notes = $10,
          updated_at = datetime('now')
-       WHERE id = $10`,
+       WHERE id = $11`,
       [
         draft.title,
         draft.source_url,
@@ -275,6 +293,7 @@ export async function updateRecipeFull(
         draft.cook_min,
         draft.total_min,
         draft.difficulty,
+        draft.description,
         draft.notes,
         id,
       ],
@@ -292,8 +311,8 @@ export async function updateRecipeFull(
       const ing = draft.ingredients[i]!;
       await db.execute(
         `INSERT INTO recipe_ingredients
-         (recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, preparation, is_optional)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+         (recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, preparation, is_optional, section_name)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           id,
           i,
@@ -304,13 +323,15 @@ export async function updateRecipeFull(
           ing.item_display,
           ing.preparation,
           ing.is_optional ? 1 : 0,
+          ing.section_name,
         ],
       );
     }
     for (let i = 0; i < draft.steps.length; i++) {
+      const step = draft.steps[i]!;
       await db.execute(
-        `INSERT INTO recipe_steps (recipe_id, position, text) VALUES ($1, $2, $3)`,
-        [id, i, draft.steps[i]!],
+        `INSERT INTO recipe_steps (recipe_id, position, text, section_name) VALUES ($1, $2, $3, $4)`,
+        [id, i, step.text, step.section_name],
       );
     }
     for (const categoryId of draft.categoryIds) {
@@ -390,7 +411,7 @@ export async function getCategoriesForRecipe(
      FROM categories c
      JOIN recipe_categories rc ON rc.category_id = c.id
      WHERE rc.recipe_id = $1
-     ORDER BY c.kind, c.sort_order`,
+     ORDER BY c.kind, c.name COLLATE NOCASE ASC`,
     [recipeId],
   );
 }

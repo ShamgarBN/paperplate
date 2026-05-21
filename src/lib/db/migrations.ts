@@ -187,4 +187,135 @@ export const migrations: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 5,
+    name: "add_recipe_description",
+    statements: [
+      // Many recipe sources (NYT Cooking, NPR, food blogs) ship a short
+      // narrative blurb in their JSON-LD `description` field. We were
+      // dumping that into `notes`, which clobbered the user's own notes
+      // and put the wrong content under the "Notes" heading. The new
+      // `description` column is a separate, scraper-owned field.
+      `ALTER TABLE recipes ADD COLUMN description TEXT`,
+    ],
+  },
+  {
+    version: 6,
+    name: "split_type_into_type_and_cooking_method",
+    statements: [
+      // SQLite can't ALTER a CHECK constraint in place, so we recreate
+      // the categories table with the expanded `kind` allow-list and
+      // copy the rows over. We also take the chance to migrate the
+      // existing cooking-method-shaped rows (Bake, Grill, One-pot, Sheet
+      // pan, Stir-fry, Roast) from `type` into the new `cooking_method`
+      // bucket so the user doesn't have to re-tag every recipe by hand.
+      `CREATE TABLE categories_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        kind TEXT NOT NULL CHECK (kind IN ('cuisine','protein','type','cooking_method','effort','tag','dietary')),
+        name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(kind, name)
+      )`,
+      // CASE expression to retag the rows we want to relocate while
+      // copying. We keep the original `id` so any existing
+      // recipe_categories rows continue to point at the same category.
+      `INSERT INTO categories_new (id, kind, name, sort_order)
+        SELECT
+          id,
+          CASE
+            WHEN kind = 'type' AND name IN (
+              'Bake', 'Grill', 'One-pot', 'Sheet pan', 'Stir-fry', 'Roast'
+            ) THEN 'cooking_method'
+            ELSE kind
+          END AS kind,
+          name,
+          sort_order
+        FROM categories`,
+      `DROP TABLE categories`,
+      `ALTER TABLE categories_new RENAME TO categories`,
+      `CREATE INDEX IF NOT EXISTS idx_categories_kind ON categories(kind, sort_order)`,
+    ],
+  },
+  {
+    version: 7,
+    name: "tag_global_shopping_entries_with_plan",
+    statements: [
+      // When the user clicks "Add this plan to my shopping list", we
+      // push one `shopping_list_recipes` row per plan recipe and tag
+      // each one with its source plan_id. That lets the per-plan
+      // shopping list show "Add to main list" or "Remove from main
+      // list" idempotently — we know which entries on the global list
+      // came from which plan, without affecting recipes the user added
+      // standalone from the recipe detail page.
+      //
+      // `ON DELETE SET NULL` rather than CASCADE: if the user deletes
+      // a plan we don't want to silently yank its recipes from the
+      // already-printed shopping list. Better to orphan them.
+      `ALTER TABLE shopping_list_recipes
+        ADD COLUMN from_plan_id INTEGER REFERENCES meal_plans(id) ON DELETE SET NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_shopping_list_recipes_from_plan
+        ON shopping_list_recipes(from_plan_id)`,
+    ],
+  },
+  {
+    version: 8,
+    name: "add_plan_day_notes",
+    statements: [
+      // Free-form per-day notes shown above the meal slots in the
+      // planner — "kids at grandma's tonight", "use up the half-loaf of
+      // bread", etc. UNIQUE(plan_id, date) so we get an idempotent
+      // upsert with INSERT OR REPLACE.
+      `CREATE TABLE IF NOT EXISTS meal_plan_day_notes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        plan_id INTEGER NOT NULL REFERENCES meal_plans(id) ON DELETE CASCADE,
+        date TEXT NOT NULL,
+        notes TEXT NOT NULL DEFAULT '',
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(plan_id, date)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_meal_plan_day_notes_plan
+        ON meal_plan_day_notes(plan_id)`,
+    ],
+  },
+  {
+    version: 9,
+    name: "add_meal_plan_slot_recipes",
+    statements: [
+      // Junction table for multiple recipes per slot. Each row pairs a
+      // slot with a recipe and its own scaled_servings + display order.
+      // The pre-existing `meal_plan_slots.recipe_id` column is kept
+      // around — populated with the first attached recipe — so older
+      // queries (e.g. cleanup tasks) keep working. New code reads from
+      // this junction table.
+      `CREATE TABLE IF NOT EXISTS meal_plan_slot_recipes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slot_id INTEGER NOT NULL REFERENCES meal_plan_slots(id) ON DELETE CASCADE,
+        recipe_id INTEGER NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        scaled_servings INTEGER,
+        position INTEGER NOT NULL DEFAULT 0,
+        UNIQUE(slot_id, recipe_id)
+      )`,
+      `CREATE INDEX IF NOT EXISTS idx_meal_plan_slot_recipes_slot
+        ON meal_plan_slot_recipes(slot_id)`,
+      // Backfill from the legacy single-recipe column so existing
+      // plans don't appear empty after upgrade.
+      `INSERT INTO meal_plan_slot_recipes (slot_id, recipe_id, scaled_servings, position)
+        SELECT id, recipe_id, scaled_servings, 0
+        FROM meal_plan_slots
+        WHERE recipe_id IS NOT NULL`,
+    ],
+  },
+  {
+    version: 10,
+    name: "add_recipe_section_headers",
+    statements: [
+      // Optional grouping label for both ingredient and instruction
+      // rows so a recipe can render multiple sub-recipes ("Cake",
+      // "Frosting") with their own headers. NULL means "no section"
+      // (the legacy flat list), which is the default for everything
+      // imported before this migration.
+      `ALTER TABLE recipe_ingredients ADD COLUMN section_name TEXT`,
+      `ALTER TABLE recipe_steps ADD COLUMN section_name TEXT`,
+    ],
+  },
 ];

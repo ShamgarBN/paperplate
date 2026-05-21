@@ -4,6 +4,7 @@ type FilterKind =
   | "cuisines"
   | "proteins"
   | "types"
+  | "cookingMethods"
   | "effort"
   | "tags"
   | "dietary";
@@ -13,6 +14,13 @@ interface LibraryState {
   selectedCuisines: number[];
   selectedProteins: number[];
   selectedTypes: number[];
+  /**
+   * Cooking-method filter, split from the legacy `selectedTypes` so the
+   * user can filter by "Air-Fryer" or "Slow Cooker" independently of
+   * whether they also want only "Main" courses. Backed by the
+   * `cooking_method` category kind introduced in migration 5.
+   */
+  selectedCookingMethods: number[];
   selectedEffort: number[];
   selectedTags: number[];
   selectedDietary: number[];
@@ -29,6 +37,7 @@ const initial = {
   selectedCuisines: [] as number[],
   selectedProteins: [] as number[],
   selectedTypes: [] as number[],
+  selectedCookingMethods: [] as number[],
   selectedEffort: [] as number[],
   selectedTags: [] as number[],
   selectedDietary: [] as number[],
@@ -39,6 +48,7 @@ const fieldByKind = {
   cuisines: "selectedCuisines",
   proteins: "selectedProteins",
   types: "selectedTypes",
+  cookingMethods: "selectedCookingMethods",
   effort: "selectedEffort",
   tags: "selectedTags",
   dietary: "selectedDietary",

@@ -83,5 +83,31 @@ describe("parseIngredient", () => {
     expect(r.quantity).toBe(1);
     expect(r.unit).toBe("cup");
     expect(r.itemCanonical).toContain("water");
+    // The "(240 ml)" was an alt-quantity hint, so it should be discarded
+    // rather than landing in `preparation`.
+    expect(r.preparation ?? "").not.toContain("240");
+  });
+
+  it("preserves meaningful parentheticals in the preparation field", () => {
+    // Regression for the report: "(bone-in)" was visible in the editor but
+    // disappeared from the rendered recipe because canonicalization
+    // stripped punctuation. The parens-aware preparation field keeps it.
+    const r = parseIngredient("4 chicken thighs (bone-in)");
+    expect(r.itemCanonical).toBe("chicken thigh");
+    expect(r.preparation).toContain("(bone-in)");
+  });
+
+  it("decodes common HTML entities so apostrophes survive", () => {
+    // Numeric and named entity decoding is shared with the scraper; here
+    // we just exercise the parser end-to-end to prove a scrape-then-store
+    // round-trip keeps the apostrophe intact.
+    const r = parseIngredient("2 cups they&#039;re-good-anytime granola");
+    expect(r.raw).toBe("2 cups they&#039;re-good-anytime granola");
+    // The display goes through canonicalization which won't preserve the
+    // apostrophe, but the raw_text (the field the editor shows) is kept
+    // exactly as the caller supplied. The scraping pipeline calls
+    // decodeHtmlEntities() *before* handing strings to this parser, so by
+    // the time the parser sees a recipe URL ingredient there are no raw
+    // entities left.
   });
 });

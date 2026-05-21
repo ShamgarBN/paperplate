@@ -14,16 +14,16 @@ const titles: Record<string, string> = {
   "/": "Library",
   "/library": "Library",
   "/import": "Add recipe",
-  "/plans": "Meal plans",
-  "/shopping": "Shopping list",
+  "/plans": "Meal Plans",
+  "/shopping": "Shopping List",
   "/settings": "Settings",
 };
 
 function pageTitle(pathname: string) {
   if (pathname.startsWith("/recipes/")) return "Recipe";
   if (pathname.startsWith("/plans/") && pathname.endsWith("/shopping"))
-    return "Shopping list";
-  if (pathname.startsWith("/plans/")) return "Meal plan";
+    return "Shopping List";
+  if (pathname.startsWith("/plans/")) return "Meal Plan";
   return titles[pathname] ?? "Paperplate";
 }
 

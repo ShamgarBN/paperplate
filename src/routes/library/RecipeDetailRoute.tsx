@@ -43,6 +43,7 @@ import {
   updateRecipe,
 } from "@/lib/db/recipeRepo";
 import { scaleIngredients } from "@/lib/scaling";
+import { toRenderableHtml } from "@/lib/richtext";
 import { localImageUrl } from "@/lib/assetUrl";
 import { printCurrentWindow } from "@/lib/print";
 import { addRecipeToShoppingList } from "@/lib/db/globalShoppingRepo";
@@ -57,6 +58,25 @@ function isSameDay(iso: string, reference: Date): boolean {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return false;
   return dfIsSameDay(date, reference);
+}
+
+/**
+ * Turn a stored source URL into a tidy domain label like "nytimes.com" or
+ * "cooking.nytimes.com". Falls back to the raw string when the URL fails
+ * to parse so the user still sees *something* useful in the header. We
+ * intentionally strip the `www.` prefix because nobody calls it "www.
+ * nytimes.com" out loud, but we leave other subdomains alone since some
+ * sites (e.g. "cooking.nytimes.com", "blog.serious eats.com") rely on
+ * them to disambiguate the section.
+ */
+function prettySourceLabel(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    const host = url.hostname.toLowerCase();
+    return host.startsWith("www.") ? host.slice(4) : host;
+  } catch {
+    return rawUrl;
+  }
 }
 
 export function RecipeDetailRoute() {
@@ -294,6 +314,9 @@ export function RecipeDetailRoute() {
   const cuisines = recipeCategories.filter((c) => c.kind === "cuisine");
   const proteins = recipeCategories.filter((c) => c.kind === "protein");
   const types = recipeCategories.filter((c) => c.kind === "type");
+  const cookingMethods = recipeCategories.filter(
+    (c) => c.kind === "cooking_method",
+  );
   const efforts = recipeCategories.filter((c) => c.kind === "effort");
   const dietary = recipeCategories.filter((c) => c.kind === "dietary");
   const tags = recipeCategories.filter((c) => c.kind === "tag");
@@ -410,6 +433,11 @@ export function RecipeDetailRoute() {
               {c.name}
             </Badge>
           ))}
+          {cookingMethods.map((c) => (
+            <Badge key={c.id} variant="outline">
+              {c.name}
+            </Badge>
+          ))}
           {efforts.map((c) => (
             <Badge key={c.id} variant="outline">
               {c.name}
@@ -429,6 +457,11 @@ export function RecipeDetailRoute() {
         <h1 className="mt-3 font-display text-4xl font-medium leading-tight tracking-tight">
           {recipe.title}
         </h1>
+        {recipe.description && (
+          <p className="mt-3 max-w-2xl text-pretty text-[15px] leading-relaxed text-muted-foreground">
+            {recipe.description}
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
           {recipe.total_min != null && (
             <span className="flex items-center gap-1.5">
@@ -461,7 +494,7 @@ export function RecipeDetailRoute() {
               rel="noreferrer"
               className="ml-auto inline-flex items-center gap-1.5 text-primary hover:underline"
             >
-              Source
+              Source: {prettySourceLabel(recipe.source_url)}
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )}
@@ -501,16 +534,7 @@ export function RecipeDetailRoute() {
               />
             </div>
           </div>
-          <ul className="space-y-1.5 text-[15px] leading-relaxed">
-            {scaledIngredients.map((ing) => (
-              <li
-                key={ing.id}
-                className="flex items-start gap-2 border-b border-border/50 py-1.5 last:border-b-0"
-              >
-                <span className="text-foreground">{ing.display}</span>
-              </li>
-            ))}
-          </ul>
+          <IngredientList ingredients={scaledIngredients} />
         </section>
 
         <section>
@@ -522,16 +546,7 @@ export function RecipeDetailRoute() {
               No instructions saved.
             </p>
           ) : (
-            <ol className="space-y-4 text-[15px] leading-relaxed">
-              {steps.map((step) => (
-                <li key={step.id} className="flex gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-sm font-medium text-primary">
-                    {step.position + 1}
-                  </span>
-                  <p className="flex-1 text-pretty">{step.text}</p>
-                </li>
-              ))}
-            </ol>
+            <StepList steps={steps} />
           )}
         </section>
       </div>
@@ -693,4 +708,112 @@ export function RecipeDetailRoute() {
       </Dialog>
     </div>
   );
+}
+
+/**
+ * Render an ingredient list grouped by sub-recipe section. Rows with
+ * `sectionName === null` are emitted under no header; rows with a
+ * name are emitted under a small uppercase header so multi-component
+ * recipes ("Cake", "Frosting") visually separate.
+ */
+function IngredientList({
+  ingredients,
+}: {
+  ingredients: import("@/lib/scaling").ScaledIngredient[];
+}) {
+  const groups = groupBySection(ingredients, (i) => i.sectionName);
+  return (
+    <div className="space-y-4">
+      {groups.map((group, gIdx) => (
+        <div key={`${group.name ?? "none"}-${gIdx}`}>
+          {group.name !== null && (
+            <h3 className="mb-2 font-display text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {group.name}
+            </h3>
+          )}
+          <ul className="space-y-1.5 text-[15px] leading-relaxed">
+            {group.items.map((ing) => (
+              <li
+                key={ing.id}
+                className="flex items-start gap-2 border-b border-border/50 py-1.5 last:border-b-0"
+              >
+                <span className="text-foreground">{ing.display}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Render an instruction list grouped by sub-recipe section. Step
+ * numbers restart within each section so the user has a clear "step
+ * 1 of Cake / step 1 of Frosting" mental model — matching most
+ * printed cookbook conventions.
+ */
+function StepList({
+  steps,
+}: {
+  steps: Array<{ id: number; position: number; text: string; section_name: string | null }>;
+}) {
+  const groups = groupBySection(steps, (s) => s.section_name);
+  return (
+    <div className="space-y-6">
+      {groups.map((group, gIdx) => (
+        <div key={`${group.name ?? "none"}-${gIdx}`}>
+          {group.name !== null && (
+            <h3 className="mb-3 font-display text-sm font-medium uppercase tracking-[0.18em] text-muted-foreground">
+              {group.name}
+            </h3>
+          )}
+          <ol className="space-y-4 text-[15px] leading-relaxed">
+            {group.items.map((step, idx) => (
+              <li key={step.id} className="flex gap-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 font-display text-sm font-medium text-primary">
+                  {idx + 1}
+                </span>
+                {/*
+                  Step text is sanitized HTML produced by our editor.
+                  `toRenderableHtml` runs every read through DOMPurify
+                  with the same allowlist used at save time — this is
+                  the single XSS boundary for instruction rendering.
+                */}
+                <p
+                  className="flex-1 text-pretty"
+                  dangerouslySetInnerHTML={{
+                    __html: toRenderableHtml(step.text),
+                  }}
+                />
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Walk an ordered array, batching consecutive items that share a
+ * section name into the same group. Order within groups is preserved.
+ * A `null` section becomes a group with `name: null` — the renderer
+ * treats it as the unlabelled top-level list.
+ */
+function groupBySection<T>(
+  items: T[],
+  getSection: (item: T) => string | null,
+): Array<{ name: string | null; items: T[] }> {
+  const groups: Array<{ name: string | null; items: T[] }> = [];
+  for (const item of items) {
+    const section = getSection(item);
+    const last = groups[groups.length - 1];
+    if (last && last.name === section) {
+      last.items.push(item);
+    } else {
+      groups.push({ name: section, items: [item] });
+    }
+  }
+  return groups;
 }

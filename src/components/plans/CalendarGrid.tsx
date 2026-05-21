@@ -1,10 +1,22 @@
-import { useMemo } from "react";
-import { format, parseISO, isSameDay } from "date-fns";
+import { useEffect, useMemo, useState } from "react";
+import { format, isSameDay } from "date-fns";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { Lock, Pencil, Plus, Trash2, Unlock, X } from "lucide-react";
-import type { MealPlan, MealSlotKind, Recipe } from "@/lib/db/schema";
-import type { PlanSlotWithRecipe } from "@/lib/db/planRepo";
+import {
+  Lock,
+  NotebookPen,
+  Pencil,
+  Plus,
+  Trash2,
+  Unlock,
+  X,
+} from "lucide-react";
+import type { MealPlan, MealSlotKind } from "@/lib/db/schema";
+import type {
+  PlanSlotRecipeAttachment,
+  PlanSlotWithRecipes,
+} from "@/lib/db/planRepo";
 import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/cn";
 
 const CUISINE_BG: Record<string, string> = {
@@ -26,10 +38,12 @@ const CUISINE_BG: Record<string, string> = {
 interface Props {
   plan: MealPlan;
   dates: Date[];
-  slots: PlanSlotWithRecipe[];
+  slots: PlanSlotWithRecipes[];
   cuisineByRecipeId: Map<number, string | null>;
-  /** Slot id of an in-flight drag — drives visual fade. Null when idle. */
-  activeSlotId: number | null;
+  /** Attachment id of an in-flight drag — drives visual fade. Null when idle. */
+  activeAttachmentId: number | null;
+  /** Per-day note text keyed by ISO date. Missing key == no note. */
+  dayNotes: Map<string, string>;
   onPickRecipe: (params: {
     date: string;
     slot: MealSlotKind;
@@ -38,8 +52,16 @@ interface Props {
   onAddBreakfast: (date: string) => void;
   onAddLunch: (date: string) => void;
   onRemoveOptionalSlot: (slotId: number) => void;
-  onEditServings: (slotId: number, current: number) => void;
+  /** Edit servings on a specific attachment within a slot. */
+  onEditAttachmentServings: (
+    attachmentId: number,
+    current: number,
+  ) => void;
   onToggleLock: (slotId: number, locked: boolean) => void;
+  /** Remove one recipe attachment from a slot (not the whole slot). */
+  onDetachRecipe: (attachmentId: number) => void;
+  /** Persist a per-day note. Empty string deletes it. */
+  onChangeDayNote: (date: string, notes: string) => void;
 }
 
 export function CalendarGrid({
@@ -47,17 +69,20 @@ export function CalendarGrid({
   dates,
   slots,
   cuisineByRecipeId,
-  activeSlotId,
+  activeAttachmentId,
+  dayNotes,
   onPickRecipe,
   onClearSlot,
   onAddBreakfast,
   onAddLunch,
   onRemoveOptionalSlot,
-  onEditServings,
+  onEditAttachmentServings,
   onToggleLock,
+  onDetachRecipe,
+  onChangeDayNote,
 }: Props) {
   const slotsByDate = useMemo(() => {
-    const map = new Map<string, PlanSlotWithRecipe[]>();
+    const map = new Map<string, PlanSlotWithRecipes[]>();
     for (const s of slots) {
       const arr = map.get(s.date) ?? [];
       arr.push(s);
@@ -97,12 +122,17 @@ export function CalendarGrid({
                 </span>
               </header>
 
+              <DayNote
+                value={dayNotes.get(dateString) ?? ""}
+                onSave={(next) => onChangeDayNote(dateString, next)}
+              />
+
               {breakfast ? (
                 <SlotCell
                   label="Breakfast"
                   slot={breakfast}
                   cuisineByRecipeId={cuisineByRecipeId}
-                  isDragging={activeSlotId === breakfast.id}
+                  activeAttachmentId={activeAttachmentId}
                   onPick={() =>
                     onPickRecipe({ date: dateString, slot: "breakfast" })
                   }
@@ -110,12 +140,11 @@ export function CalendarGrid({
                   onRemoveOptionalSlot={() =>
                     onRemoveOptionalSlot(breakfast.id)
                   }
-                  onEditServings={(current) =>
-                    onEditServings(breakfast.id, current)
-                  }
+                  onEditAttachmentServings={onEditAttachmentServings}
                   onToggleLock={(locked) =>
                     onToggleLock(breakfast.id, locked)
                   }
+                  onDetachRecipe={onDetachRecipe}
                   showRemoveOptionalSlot
                 />
               ) : (
@@ -130,16 +159,15 @@ export function CalendarGrid({
                   label="Lunch"
                   slot={lunch}
                   cuisineByRecipeId={cuisineByRecipeId}
-                  isDragging={activeSlotId === lunch.id}
+                  activeAttachmentId={activeAttachmentId}
                   onPick={() =>
                     onPickRecipe({ date: dateString, slot: "lunch" })
                   }
                   onClear={() => onClearSlot(lunch.id)}
                   onRemoveOptionalSlot={() => onRemoveOptionalSlot(lunch.id)}
-                  onEditServings={(current) =>
-                    onEditServings(lunch.id, current)
-                  }
+                  onEditAttachmentServings={onEditAttachmentServings}
                   onToggleLock={(locked) => onToggleLock(lunch.id, locked)}
+                  onDetachRecipe={onDetachRecipe}
                   showRemoveOptionalSlot
                 />
               ) : (
@@ -154,15 +182,14 @@ export function CalendarGrid({
                   label="Dinner"
                   slot={dinner}
                   cuisineByRecipeId={cuisineByRecipeId}
-                  isDragging={activeSlotId === dinner.id}
+                  activeAttachmentId={activeAttachmentId}
                   onPick={() =>
                     onPickRecipe({ date: dateString, slot: "dinner" })
                   }
                   onClear={() => onClearSlot(dinner.id)}
-                  onEditServings={(current) =>
-                    onEditServings(dinner.id, current)
-                  }
+                  onEditAttachmentServings={onEditAttachmentServings}
                   onToggleLock={(locked) => onToggleLock(dinner.id, locked)}
+                  onDetachRecipe={onDetachRecipe}
                 />
               )}
             </div>
@@ -175,14 +202,18 @@ export function CalendarGrid({
 
 interface SlotCellProps {
   label: string;
-  slot: PlanSlotWithRecipe;
+  slot: PlanSlotWithRecipes;
   cuisineByRecipeId: Map<number, string | null>;
-  isDragging: boolean;
+  activeAttachmentId: number | null;
   onPick: () => void;
   onClear: () => void;
   onRemoveOptionalSlot?: () => void;
-  onEditServings: (current: number) => void;
+  onEditAttachmentServings: (
+    attachmentId: number,
+    current: number,
+  ) => void;
   onToggleLock: (locked: boolean) => void;
+  onDetachRecipe: (attachmentId: number) => void;
   showRemoveOptionalSlot?: boolean;
 }
 
@@ -208,22 +239,21 @@ function SlotCell({
   label,
   slot,
   cuisineByRecipeId,
-  isDragging,
+  activeAttachmentId,
   onPick,
   onClear,
   onRemoveOptionalSlot,
-  onEditServings,
+  onEditAttachmentServings,
   onToggleLock,
+  onDetachRecipe,
   showRemoveOptionalSlot,
 }: SlotCellProps) {
   const droppable = useDroppable({
     id: `drop-${slot.id}`,
-    data: { date: slot.date, slot: slot.slot },
+    data: { date: slot.date, slot: slot.slot, slotId: slot.id },
   });
 
-  const recipe = slot.recipe;
-  const cuisineName = recipe?.id ? cuisineByRecipeId.get(recipe.id) : null;
-  const cuisineCls = (cuisineName && CUISINE_BG[cuisineName]) ?? "";
+  const hasRecipes = slot.recipes.length > 0;
 
   return (
     <div
@@ -236,7 +266,7 @@ function SlotCell({
       <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
         <span>{label}</span>
         <div className="flex items-center gap-0.5">
-          {recipe && (
+          {hasRecipes && (
             <button
               type="button"
               aria-label={slot.is_locked ? "Unlock slot" : "Lock slot"}
@@ -255,6 +285,17 @@ function SlotCell({
               )}
             </button>
           )}
+          {hasRecipes && slot.recipes.length > 1 && (
+            <button
+              type="button"
+              aria-label="Clear all recipes from slot"
+              onClick={onClear}
+              className="rounded p-1 text-muted-foreground hover:text-foreground"
+              title="Clear all recipes from this slot"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
           {showRemoveOptionalSlot && (
             <button
               type="button"
@@ -268,16 +309,36 @@ function SlotCell({
         </div>
       </div>
 
-      {recipe ? (
-        <DraggableRecipe
-          slotId={slot.id}
-          recipe={recipe}
-          cuisineCls={cuisineCls}
-          isDragging={isDragging}
-          servings={slot.scaled_servings ?? recipe.base_servings}
-          onClear={onClear}
-          onEditServings={onEditServings}
-        />
+      {hasRecipes ? (
+        <div className="mt-1.5 flex flex-col gap-1.5">
+          {slot.recipes.map((attachment) => {
+            const cuisineName = cuisineByRecipeId.get(attachment.recipe.id);
+            const cuisineCls = (cuisineName && CUISINE_BG[cuisineName]) ?? "";
+            return (
+              <DraggableRecipe
+                key={attachment.attachmentId}
+                attachment={attachment}
+                cuisineCls={cuisineCls}
+                isDragging={activeAttachmentId === attachment.attachmentId}
+                onDetach={() => onDetachRecipe(attachment.attachmentId)}
+                onEditServings={(current) =>
+                  onEditAttachmentServings(
+                    attachment.attachmentId,
+                    current,
+                  )
+                }
+              />
+            );
+          })}
+          <button
+            onClick={onPick}
+            className="flex h-6 items-center justify-center gap-1 rounded-md border border-dashed text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="Add another recipe to this slot"
+          >
+            <Plus className="h-3 w-3" />
+            Add recipe
+          </button>
+        </div>
       ) : (
         <button
           onClick={onPick}
@@ -292,28 +353,27 @@ function SlotCell({
 }
 
 function DraggableRecipe({
-  slotId,
-  recipe,
+  attachment,
   cuisineCls,
   isDragging,
-  servings,
-  onClear,
+  onDetach,
   onEditServings,
 }: {
-  slotId: number;
-  recipe: Recipe;
+  attachment: PlanSlotRecipeAttachment;
   cuisineCls: string;
   isDragging: boolean;
-  servings: number;
-  onClear: () => void;
+  onDetach: () => void;
   onEditServings: (current: number) => void;
 }) {
-  // Prefix the id so the drag handler in PlanDetailRoute can distinguish a
-  // slot-to-slot drag (`slot-${id}`) from a library-to-slot drag (`lib-${id}`).
+  // Prefix the id with `att-` so the drag handler in PlanDetailRoute
+  // can distinguish slot-attachment drags (`att-${attachmentId}`) from
+  // library drags (`lib-${recipeId}`).
   const draggable = useDraggable({
-    id: `slot-${slotId}`,
-    data: { kind: "slot", slotId },
+    id: `att-${attachment.attachmentId}`,
+    data: { kind: "attachment", attachmentId: attachment.attachmentId },
   });
+  const servings =
+    attachment.scaledServings ?? attachment.recipe.base_servings;
   return (
     <div
       ref={draggable.setNodeRef}
@@ -326,12 +386,12 @@ function DraggableRecipe({
       {...draggable.listeners}
       {...draggable.attributes}
       className={cn(
-        "group mt-1.5 cursor-grab rounded-md border p-2 active:cursor-grabbing",
+        "group cursor-grab rounded-md border p-2 active:cursor-grabbing",
         cuisineCls || "border-border bg-background",
       )}
     >
       <p className="line-clamp-2 text-sm font-medium leading-snug">
-        {recipe.title}
+        {attachment.recipe.title}
       </p>
       <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
         <span>{servings} servings</span>
@@ -354,9 +414,9 @@ function DraggableRecipe({
             className="h-6 w-6"
             onClick={(e) => {
               e.stopPropagation();
-              onClear();
+              onDetach();
             }}
-            aria-label="Clear slot"
+            aria-label="Remove recipe from slot"
           >
             <X className="h-3 w-3" />
           </Button>
@@ -366,19 +426,95 @@ function DraggableRecipe({
   );
 }
 
-export function chunkDates(dates: Date[], size: number): Date[][] {
-  const out: Date[][] = [];
-  for (let i = 0; i < dates.length; i += size) {
-    out.push(dates.slice(i, i + size));
+/**
+ * Tiny per-day notes affordance: starts collapsed (a subtle "+ Note"
+ * button or a one-line preview), expands into a textarea on click,
+ * and commits on blur. Blurring with empty text deletes the note —
+ * the parent treats "" as a deletion sentinel and won't store noise.
+ *
+ * `value` is the persisted value; we keep a local `draft` so the user
+ * can edit freely without each keystroke flushing to the DB.
+ */
+function DayNote({
+  value,
+  onSave,
+}: {
+  value: string;
+  onSave: (next: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (!editing) setDraft(value);
+  }, [value, editing]);
+
+  const commit = () => {
+    setEditing(false);
+    const next = draft.trim();
+    if (next !== value.trim()) onSave(next);
+  };
+
+  if (!editing) {
+    if (value.trim()) {
+      return (
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="line-clamp-2 rounded-md border border-dashed border-border/60 bg-muted/30 px-2 py-1 text-left text-[11px] leading-snug text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+          title="Edit day note"
+        >
+          {value}
+        </button>
+      );
+    }
+    return (
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="flex h-6 items-center justify-center gap-1 rounded-md border border-dashed text-[10px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      >
+        <NotebookPen className="h-3 w-3" />
+        Note
+      </button>
+    );
   }
-  return out;
+
+  return (
+    <Textarea
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setDraft(value);
+          setEditing(false);
+        }
+        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+          (e.currentTarget as HTMLTextAreaElement).blur();
+        }
+      }}
+      placeholder="Notes for the day…"
+      autoFocus
+      rows={2}
+      maxLength={2_000}
+      className="min-h-[44px] text-[11px] leading-snug"
+    />
+  );
 }
 
-export function startOfWeekIndex(date: Date) {
+function startOfWeekIndex(date: Date): number {
+  // Make Monday = 0 so weeks render Monday-first in the grid.
   const day = date.getDay();
-  return (day + 6) % 7; // make Monday=0
+  return (day + 6) % 7;
 }
 
+/**
+ * Split a contiguous run of dates into Monday-aligned weeks of up to
+ * seven days. Used by the planner to lay out a plan that may start
+ * mid-week — the leading null cells are filtered out, but the
+ * alignment still pushes the first real date into the right column.
+ */
 export function alignWeekChunks(dates: Date[]): Date[][] {
   if (dates.length === 0) return [];
   const first = dates[0];
@@ -393,5 +529,3 @@ export function alignWeekChunks(dates: Date[]): Date[][] {
   }
   return chunks;
 }
-
-export const _exportedForType = parseISO;

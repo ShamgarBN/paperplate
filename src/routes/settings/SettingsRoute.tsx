@@ -1,3 +1,4 @@
+import { AislesEditor } from "@/components/settings/AislesEditor";
 import { CategoriesEditor } from "@/components/settings/CategoriesEditor";
 import { PlannerDefaults } from "@/components/settings/PlannerDefaults";
 import { AccentPicker } from "@/components/settings/AccentPicker";
@@ -20,6 +21,7 @@ export function SettingsRoute() {
         <AccentPicker />
         <PlannerDefaults />
         <CategoriesEditor />
+        <AislesEditor />
         <BackupCard />
       </div>
     </div>

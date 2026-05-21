@@ -7,11 +7,19 @@ import {
   ClipboardCopy,
   Printer,
   RefreshCw,
+  ShoppingBasket,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent } from "@/components/ui/Card";
 import { Checkbox } from "@/components/ui/Checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select";
 import { Separator } from "@/components/ui/Separator";
 import { getPlan } from "@/lib/db/planRepo";
 import {
@@ -19,6 +27,12 @@ import {
   saveShoppingChecks,
   updateShoppingChecks,
 } from "@/lib/db/shoppingRepo";
+import {
+  addPlanToGlobalShoppingList,
+  countPlanEntriesOnGlobalList,
+  removePlanFromGlobalShoppingList,
+} from "@/lib/db/globalShoppingRepo";
+import { listAisles, setIngredientAisle } from "@/lib/db/aisleRepo";
 import { toPlainText, type ShoppingItem } from "@/lib/shopping";
 import { printCurrentWindow } from "@/lib/print";
 import { cn } from "@/lib/cn";
@@ -38,6 +52,51 @@ export function ShoppingRoute() {
     queryKey: ["shopping-list", id],
     queryFn: () => generateShoppingList(id),
     enabled: Number.isFinite(id),
+  });
+  const aislesQuery = useQuery({
+    queryKey: ["aisles"],
+    queryFn: listAisles,
+  });
+  const aisleOptions = useMemo(
+    () => (aislesQuery.data ?? []).map((a) => a.name),
+    [aislesQuery.data],
+  );
+
+  const onMainListQuery = useQuery({
+    queryKey: ["plan-on-global-list", id],
+    queryFn: () => countPlanEntriesOnGlobalList(id),
+    enabled: Number.isFinite(id),
+  });
+  const isOnMainList = (onMainListQuery.data ?? 0) > 0;
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      if (isOnMainList) {
+        return removePlanFromGlobalShoppingList(id);
+      }
+      return addPlanToGlobalShoppingList(id);
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["plan-on-global-list", id] });
+      queryClient.invalidateQueries({ queryKey: ["global-shopping"] });
+      if ("inserted" in result) {
+        toast.success(
+          result.inserted === 0
+            ? "Plan already on your main shopping list."
+            : `Added ${result.inserted} recipe${result.inserted === 1 ? "" : "s"} to your main shopping list.`,
+        );
+      } else if ("removed" in result) {
+        toast.success(
+          result.removed === 0
+            ? "Nothing to remove."
+            : `Removed ${result.removed} recipe${result.removed === 1 ? "" : "s"} from your main shopping list.`,
+        );
+      }
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not update main shopping list: ${err instanceof Error ? err.message : String(err)}`,
+      ),
   });
 
   const [checked, setChecked] = useState<Record<string, boolean>>({});
@@ -63,6 +122,27 @@ export function ShoppingRoute() {
     onSuccess: (newId) => {
       setSnapshotId(newId);
     },
+  });
+  const reassignAisleMutation = useMutation({
+    mutationFn: async (params: {
+      itemCanonical: string;
+      aisleName: string;
+    }) => {
+      const ok = await setIngredientAisle(
+        params.itemCanonical,
+        params.aisleName,
+      );
+      if (!ok) throw new Error(`Aisle "${params.aisleName}" no longer exists`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["shopping-list", id] });
+      queryClient.invalidateQueries({ queryKey: ["global-shopping"] });
+      toast.success("Aisle updated.");
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not move item: ${err instanceof Error ? err.message : String(err)}`,
+      ),
   });
 
   const items = listQuery.data?.items ?? [];
@@ -129,6 +209,21 @@ export function ShoppingRoute() {
         </Button>
         <div className="flex items-center gap-2">
           <Button
+            variant={isOnMainList ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending || items.length === 0}
+            className="gap-1.5"
+            title={
+              isOnMainList
+                ? "Remove this plan's recipes from your main Shopping List"
+                : "Send this plan's recipes to your main Shopping List"
+            }
+          >
+            <ShoppingBasket className="h-4 w-4" />
+            {isOnMainList ? "Remove from main list" : "Add to main list"}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={handleRegenerate}
@@ -166,7 +261,7 @@ export function ShoppingRoute() {
 
       <header className="mb-6">
         <h1 className="font-display text-3xl font-medium tracking-tight">
-          Shopping list
+          Shopping List
         </h1>
         <p className="text-sm text-muted-foreground">
           {plan.name} · {format(parseISO(plan.start_date), "MMM d")} —{" "}
@@ -198,7 +293,14 @@ export function ShoppingRoute() {
                     key={item.id}
                     item={item}
                     checked={!!checked[item.id]}
+                    aisleOptions={aisleOptions}
                     onToggle={() => onToggle(item.id)}
+                    onReassignAisle={(next) =>
+                      reassignAisleMutation.mutate({
+                        itemCanonical: item.itemCanonical,
+                        aisleName: next,
+                      })
+                    }
                   />
                 ))}
               </ul>
@@ -221,12 +323,19 @@ export function ShoppingRoute() {
 function ShoppingRow({
   item,
   checked,
+  aisleOptions,
   onToggle,
+  onReassignAisle,
 }: {
   item: ShoppingItem;
   checked: boolean;
+  aisleOptions: string[];
   onToggle: () => void;
+  onReassignAisle: (next: string) => void;
 }) {
+  const options = aisleOptions.includes(item.aisle)
+    ? aisleOptions
+    : [...aisleOptions, item.aisle];
   return (
     <li
       className={cn(
@@ -262,6 +371,29 @@ function ShoppingRow({
             ? ` +${item.contributors.length - 1}`
             : ""}
         </span>
+      )}
+      {options.length > 0 && (
+        <Select
+          value={item.aisle}
+          onValueChange={(next) => {
+            if (next !== item.aisle) onReassignAisle(next);
+          }}
+        >
+          <SelectTrigger
+            aria-label={`Move ${item.itemDisplay} to a different aisle`}
+            className="h-7 w-[7.5rem] gap-1 border-none bg-transparent px-1.5 text-[11px] text-muted-foreground hover:bg-muted/60 hover:text-foreground focus:ring-1 print:hidden"
+            data-print-hide
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((a) => (
+              <SelectItem key={a} value={a}>
+                {a}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     </li>
   );

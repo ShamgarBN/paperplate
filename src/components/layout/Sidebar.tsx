@@ -25,13 +25,13 @@ const items: NavItem[] = [
   {
     to: "/plans",
     icon: CalendarDays,
-    label: "Meal plans",
+    label: "Meal Plans",
     matchPrefixes: ["/plans"],
   },
   {
     to: "/shopping",
     icon: ShoppingBasket,
-    label: "Shopping list",
+    label: "Shopping List",
     // Per-plan shopping lists live at /plans/$id/shopping. We deliberately
     // exclude that path here so the "Meal plans" entry stays highlighted
     // when the user is on a plan's per-plan list.

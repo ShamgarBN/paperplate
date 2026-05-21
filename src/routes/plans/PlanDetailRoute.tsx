@@ -6,7 +6,15 @@ import {
 } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, parseISO } from "date-fns";
-import { ChevronLeft, ShoppingBasket, Trash2 } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  Copy,
+  Pencil,
+  ShoppingBasket,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -24,6 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/Dialog";
+import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
   CalendarGrid,
@@ -35,21 +44,28 @@ import { RecipePicker } from "@/components/plans/RecipePicker";
 import { ServingsEditor } from "@/components/plans/ServingsEditor";
 import { AutoFillBar } from "@/components/plans/AutoFillBar";
 import {
+  attachRecipeToSlot,
   deletePlan,
+  detachRecipeFromSlot,
+  duplicatePlan,
   ensureBreakfastSlot,
   ensureLunchSlot,
   findOrCreateSlot,
   getPlan,
   getPlanSlotsWithRecipes,
+  listDayNotes,
+  moveAttachmentToSlot,
   removeSlot,
+  renamePlan,
+  setAttachmentServings,
+  setDayNote,
   setSlotLocked,
   setSlotRecipe,
-  setSlotServings,
 } from "@/lib/db/planRepo";
 import { loadPlannerRecipes } from "@/lib/db/plannerRepo";
 import { listRecipes } from "@/lib/db/recipeRepo";
 import { autoSelect } from "@/lib/planner/autoSelect";
-import type { MealSlotKind, Recipe, MealPlanSlot } from "@/lib/db/schema";
+import type { MealSlotKind, Recipe } from "@/lib/db/schema";
 import { getDb } from "@/lib/db/client";
 import { withWriteLock } from "@/lib/db/writeLock";
 import { useSettingsStore } from "@/store/settingsStore";
@@ -77,16 +93,36 @@ export function PlanDetailRoute() {
     queryFn: async () => buildCuisineByRecipeMap(),
   });
 
+  const dayNotesQuery = useQuery({
+    queryKey: ["plan-day-notes", id],
+    queryFn: () => listDayNotes(id),
+    enabled: Number.isFinite(id),
+  });
+
+  const setDayNoteMutation = useMutation({
+    mutationFn: async (params: { date: string; notes: string }) =>
+      setDayNote(id, params.date, params.notes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plan-day-notes", id] });
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not save note: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+  });
+
   const [picker, setPicker] = useState<{
     date: string;
     slot: MealSlotKind;
   } | null>(null);
   const [servingsEditor, setServingsEditor] = useState<{
-    slotId: number;
+    attachmentId: number;
     initial: number;
   } | null>(null);
   const [confirmDeletePlan, setConfirmDeletePlan] = useState(false);
-  const [activeSlotId, setActiveSlotId] = useState<number | null>(null);
+  const [activeAttachmentId, setActiveAttachmentId] = useState<number | null>(
+    null,
+  );
   const [activeRecipeId, setActiveRecipeId] = useState<number | null>(null);
 
   const libraryRecipesQuery = useQuery({
@@ -100,33 +136,33 @@ export function PlanDetailRoute() {
 
   const handleDragStart = (event: { active: { id: string | number } }) => {
     const id = String(event.active.id);
-    if (id.startsWith("slot-")) {
-      setActiveSlotId(Number(id.slice(5)) || null);
+    if (id.startsWith("att-")) {
+      setActiveAttachmentId(Number(id.slice(4)) || null);
     } else if (id.startsWith("lib-")) {
       setActiveRecipeId(Number(id.slice(4)) || null);
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveSlotId(null);
+    setActiveAttachmentId(null);
     setActiveRecipeId(null);
     const target = event.over?.data.current as
-      | { date: string; slot: MealSlotKind }
+      | { date: string; slot: MealSlotKind; slotId?: number }
       | undefined;
     if (!target) return;
     const sourceId = String(event.active.id);
-    if (sourceId.startsWith("slot-")) {
-      const fromSlotId = Number(sourceId.slice(5));
-      if (!fromSlotId) return;
-      moveSlotMutation.mutate({
-        fromSlotId,
+    if (sourceId.startsWith("att-")) {
+      const attachmentId = Number(sourceId.slice(4));
+      if (!attachmentId) return;
+      moveAttachmentMutation.mutate({
+        attachmentId,
         toDate: target.date,
         toSlot: target.slot,
       });
     } else if (sourceId.startsWith("lib-")) {
       const recipeId = Number(sourceId.slice(4));
       if (!recipeId) return;
-      assignFromLibraryMutation.mutate({
+      attachFromLibraryMutation.mutate({
         recipeId,
         date: target.date,
         slot: target.slot,
@@ -154,9 +190,17 @@ export function PlanDetailRoute() {
     onSuccess: refresh,
   });
 
-  const servingsMutation = useMutation({
-    mutationFn: async (params: { slotId: number; servings: number | null }) =>
-      setSlotServings(params.slotId, params.servings),
+  const attachmentServingsMutation = useMutation({
+    mutationFn: async (params: {
+      attachmentId: number;
+      servings: number | null;
+    }) => setAttachmentServings(params.attachmentId, params.servings),
+    onSuccess: refresh,
+  });
+
+  const detachRecipeMutation = useMutation({
+    mutationFn: async (attachmentId: number) =>
+      detachRecipeFromSlot(attachmentId),
     onSuccess: refresh,
   });
 
@@ -175,36 +219,28 @@ export function PlanDetailRoute() {
     onSuccess: refresh,
   });
 
-  const moveSlotMutation = useMutation({
+  const moveAttachmentMutation = useMutation({
     mutationFn: async (params: {
-      fromSlotId: number;
+      attachmentId: number;
       toDate: string;
       toSlot: MealSlotKind;
     }) =>
       withWriteLock(async () => {
-        const slots = await getPlanSlotsWithRecipes(id);
-        const from = slots.find((s) => s.id === params.fromSlotId);
-        if (!from || !from.recipe_id) return;
         const target = await findOrCreateSlot(
           id,
           params.toDate,
           params.toSlot,
         );
-        const fromRecipe = from.recipe_id;
-        const fromServings = from.scaled_servings;
-        const toRecipe = target.recipe_id;
-        const toServings = target.scaled_servings;
-        await setSlotRecipe(target.id, fromRecipe, fromServings);
-        await setSlotRecipe(from.id, toRecipe, toServings);
+        await moveAttachmentToSlot(params.attachmentId, target.id);
       }),
     onSuccess: refresh,
     onError: (err) =>
       toast.error(
-        `Could not move slot: ${err instanceof Error ? err.message : String(err)}`,
+        `Could not move recipe: ${err instanceof Error ? err.message : String(err)}`,
       ),
   });
 
-  const assignFromLibraryMutation = useMutation({
+  const attachFromLibraryMutation = useMutation({
     mutationFn: async (params: {
       recipeId: number;
       date: string;
@@ -226,12 +262,12 @@ export function PlanDetailRoute() {
         );
         const row = rows[0];
         const servings = row?.preferred_servings ?? row?.base_servings ?? null;
-        await setSlotRecipe(target.id, params.recipeId, servings);
+        await attachRecipeToSlot(target.id, params.recipeId, servings);
       }),
     onSuccess: refresh,
     onError: (err) =>
       toast.error(
-        `Could not assign recipe: ${err instanceof Error ? err.message : String(err)}`,
+        `Could not attach recipe: ${err instanceof Error ? err.message : String(err)}`,
       ),
   });
 
@@ -248,6 +284,34 @@ export function PlanDetailRoute() {
       ),
   });
 
+  const renamePlanMutation = useMutation({
+    mutationFn: async (name: string) => renamePlan(id, name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["plan", id] });
+      queryClient.invalidateQueries({ queryKey: ["plans"] });
+      toast.success("Plan renamed.");
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not rename plan: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+  });
+
+  const duplicatePlanMutation = useMutation({
+    mutationFn: async () => duplicatePlan(id),
+    onSuccess: (newId) => {
+      queryClient.invalidateQueries({ queryKey: ["plans"] });
+      toast.success("Plan duplicated.");
+      navigate({ to: "/plans/$planId", params: { planId: String(newId) } });
+    },
+    onError: (err) =>
+      toast.error(
+        `Could not duplicate plan: ${err instanceof Error ? err.message : String(err)}`,
+      ),
+  });
+
+  const [renameDraft, setRenameDraft] = useState<string | null>(null);
+
   const settings = useSettingsStore();
   const [preserveLocked, setPreserveLocked] = useState(true);
 
@@ -258,11 +322,19 @@ export function PlanDetailRoute() {
         throw new Error("Add some recipes to your library first.");
       }
       const currentSlots = await getPlanSlotsWithRecipes(id);
-      const plannerSlots = currentSlots.map((s: MealPlanSlot) => ({
+      // Auto-fill only ever produces one recipe per slot. We surface
+      // the slot's *primary* attachment (position 0) to the solver so
+      // it sees "is something already here?" correctly. Multi-recipe
+      // slots survive because we don't include them in the writeback
+      // when `preserveLocked` is true and the slot is locked.
+      const plannerSlots = currentSlots.map((s) => ({
         id: s.id,
         date: s.date,
         slot: s.slot,
-        recipeId: preserveLocked && s.is_locked ? s.recipe_id : null,
+        recipeId:
+          preserveLocked && s.is_locked
+            ? s.recipes[0]?.recipe.id ?? null
+            : null,
         isLocked: preserveLocked ? !!s.is_locked : false,
       }));
       const result = autoSelect(planRecipes, plannerSlots, {
@@ -411,12 +483,81 @@ export function PlanDetailRoute() {
       </div>
 
       <header className="mb-6">
-        <h1 className="font-display text-3xl font-medium tracking-tight">
-          {plan.name}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {format(parseISO(plan.start_date), "EEE, MMM d")} —{" "}
-          {format(parseISO(plan.end_date), "EEE, MMM d, yyyy")} ·{" "}
+        {renameDraft !== null ? (
+          <div className="flex items-center gap-2">
+            <Input
+              value={renameDraft}
+              onChange={(e) => setRenameDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  const trimmed = (renameDraft ?? "").trim();
+                  if (trimmed && trimmed !== plan.name) {
+                    renamePlanMutation.mutate(trimmed);
+                  }
+                  setRenameDraft(null);
+                }
+                if (e.key === "Escape") setRenameDraft(null);
+              }}
+              autoFocus
+              className="h-11 max-w-xl text-2xl font-medium tracking-tight"
+              maxLength={120}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Save name"
+              onClick={() => {
+                const trimmed = (renameDraft ?? "").trim();
+                if (trimmed && trimmed !== plan.name) {
+                  renamePlanMutation.mutate(trimmed);
+                }
+                setRenameDraft(null);
+              }}
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Cancel rename"
+              onClick={() => setRenameDraft(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <h1 className="font-display text-3xl font-medium tracking-tight">
+              {plan.name}
+            </h1>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              aria-label="Rename plan"
+              onClick={() => setRenameDraft(plan.name)}
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground"
+              aria-label="Duplicate plan"
+              onClick={() => duplicatePlanMutation.mutate()}
+              disabled={duplicatePlanMutation.isPending}
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )}
+        {/*
+          The date range is shown on the Meal Plans list card already, so
+          we don't repeat it here. We keep only the day-count summary —
+          it's the bit of metadata the user actually scans for while
+          working inside the plan.
+        */}
+        <p className="mt-1 text-sm text-muted-foreground">
           {dates.length} day{dates.length === 1 ? "" : "s"}
         </p>
       </header>
@@ -435,7 +576,8 @@ export function PlanDetailRoute() {
                 dates={week}
                 slots={slots}
                 cuisineByRecipeId={cuisineByRecipeId}
-                activeSlotId={activeSlotId}
+                activeAttachmentId={activeAttachmentId}
+                dayNotes={dayNotesQuery.data ?? new Map()}
                 onPickRecipe={(p) => setPicker(p)}
                 onClearSlot={(slotId) =>
                   setRecipeMutation.mutate({
@@ -451,11 +593,17 @@ export function PlanDetailRoute() {
                 onRemoveOptionalSlot={(slotId) =>
                   removeSlotMutation.mutate(slotId)
                 }
-                onEditServings={(slotId, current) =>
-                  setServingsEditor({ slotId, initial: current })
+                onEditAttachmentServings={(attachmentId, current) =>
+                  setServingsEditor({ attachmentId, initial: current })
                 }
                 onToggleLock={(slotId, locked) =>
                   lockMutation.mutate({ slotId, locked })
+                }
+                onDetachRecipe={(attachmentId) =>
+                  detachRecipeMutation.mutate(attachmentId)
+                }
+                onChangeDayNote={(date, notes) =>
+                  setDayNoteMutation.mutate({ date, notes })
                 }
               />
             ))}
@@ -481,7 +629,15 @@ export function PlanDetailRoute() {
         onPick={async (recipe: Recipe) => {
           if (!picker) return;
           const target = await findOrCreateSlot(id, picker.date, picker.slot);
-          await setSlotRecipe(target.id, recipe.id, recipe.base_servings);
+          // The picker is also reachable from the per-slot "Add recipe"
+          // button when the slot already has attachments, so we append
+          // rather than replacing. `attachRecipeToSlot` is a no-op if
+          // the same recipe is already attached.
+          await attachRecipeToSlot(
+            target.id,
+            recipe.id,
+            recipe.base_servings,
+          );
           setPicker(null);
           refresh();
         }}
@@ -493,8 +649,8 @@ export function PlanDetailRoute() {
         initial={servingsEditor?.initial ?? 4}
         onSave={(value) => {
           if (!servingsEditor) return;
-          servingsMutation.mutate({
-            slotId: servingsEditor.slotId,
+          attachmentServingsMutation.mutate({
+            attachmentId: servingsEditor.attachmentId,
             servings: value,
           });
           setServingsEditor(null);

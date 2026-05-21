@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/scraping/decode";
 import { parseDurationMinutes } from "@/lib/scraping/duration";
 import type { ScrapedRecipe } from "@/lib/scraping/types";
 
@@ -60,7 +61,7 @@ function isRecipeType(t: unknown): boolean {
 
 function asString(value: unknown): string | null {
   if (value == null) return null;
-  if (typeof value === "string") return value.trim();
+  if (typeof value === "string") return decodeHtmlEntities(value.trim());
   if (typeof value === "number") return value.toString();
   if (Array.isArray(value)) {
     for (const item of value) {
@@ -71,10 +72,13 @@ function asString(value: unknown): string | null {
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    if (typeof obj["@value"] === "string") return obj["@value"];
-    if (typeof obj["name"] === "string") return obj["name"];
-    if (typeof obj["text"] === "string") return obj["text"];
-    if (typeof obj["url"] === "string") return obj["url"];
+    // Defer trimming + decoding to a single recursive call so we never miss
+    // a nested encoded entity. Each recursion is bounded by the object's
+    // own depth, which JSON-LD authors keep shallow in practice.
+    if (typeof obj["@value"] === "string") return asString(obj["@value"]);
+    if (typeof obj["name"] === "string") return asString(obj["name"]);
+    if (typeof obj["text"] === "string") return asString(obj["text"]);
+    if (typeof obj["url"] === "string") return asString(obj["url"]);
   }
   return null;
 }
@@ -102,7 +106,7 @@ function asStringArray(value: unknown): string[] {
 function extractInstructions(value: unknown): string[] {
   if (value == null) return [];
   if (typeof value === "string") {
-    return value
+    return decodeHtmlEntities(value)
       .split(/\r?\n|\.\s+/)
       .map((s) => s.trim())
       .filter(Boolean);
@@ -124,9 +128,11 @@ function extractInstructions(value: unknown): string[] {
       items.push(...extractInstructions(item));
       return items;
     }
-    if (typeof obj["text"] === "string") return [obj["text"].trim()];
+    if (typeof obj["text"] === "string") {
+      return [decodeHtmlEntities(obj["text"].trim())];
+    }
     if (typeof obj["name"] === "string" && typeof obj["text"] !== "string") {
-      return [obj["name"].trim()];
+      return [decodeHtmlEntities(obj["name"].trim())];
     }
   }
   return [];

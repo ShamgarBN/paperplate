@@ -58,10 +58,40 @@ export async function generateShoppingList(
   planId: number,
 ): Promise<ShoppingListWithChecks> {
   const db = await getDb();
-  const slots = await db.select<MealPlanSlot[]>(
-    "SELECT * FROM meal_plan_slots WHERE plan_id = $1",
+  // Read from the junction table so multi-recipe slots contribute all
+  // their recipes — not just the legacy "primary" mirror. Each
+  // attachment becomes one "virtual slot" for the aggregator (it only
+  // reads `recipe_id`, `scaled_servings`, and `id` from each slot, so
+  // the attachment id is a fine substitute for the slot id and
+  // preserves unique passthrough keys).
+  const attachmentRows = await db.select<
+    Array<{
+      attachment_id: number;
+      plan_id: number;
+      date: string;
+      slot: string;
+      recipe_id: number;
+      scaled_servings: number | null;
+    }>
+  >(
+    `SELECT mpsr.id AS attachment_id,
+            s.plan_id, s.date, s.slot,
+            mpsr.recipe_id, mpsr.scaled_servings
+     FROM meal_plan_slot_recipes mpsr
+     JOIN meal_plan_slots s ON s.id = mpsr.slot_id
+     WHERE s.plan_id = $1
+     ORDER BY s.date, mpsr.position, mpsr.id`,
     [planId],
   );
+  const slots: MealPlanSlot[] = attachmentRows.map((r) => ({
+    id: r.attachment_id,
+    plan_id: r.plan_id,
+    date: r.date,
+    slot: r.slot as MealPlanSlot["slot"],
+    recipe_id: r.recipe_id,
+    scaled_servings: r.scaled_servings,
+    is_locked: 0,
+  }));
 
   const recipeIds = Array.from(
     new Set(

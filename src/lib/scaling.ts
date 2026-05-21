@@ -13,6 +13,8 @@ export interface ScaledIngredient {
   preparation: string | null;
   isOptional: boolean;
   raw: string;
+  /** Sub-recipe label this row belongs to (null = ungrouped). */
+  sectionName: string | null;
   /** Pre-formatted quantity (e.g. "1 \u00BD") for display. */
   displayQuantity: string;
   /** Pre-formatted unit (singular/plural correct). */
@@ -42,6 +44,7 @@ export function scaleIngredients(
         preparation: ing.preparation,
         isOptional: ing.is_optional === 1,
         raw: ing.raw_text,
+        sectionName: ing.section_name,
       }),
     );
   }
@@ -58,6 +61,7 @@ export function scaleIngredients(
       preparation: ing.preparation,
       isOptional: ing.is_optional === 1,
       raw: ing.raw_text,
+      sectionName: ing.section_name,
     });
   });
 }
@@ -88,7 +92,7 @@ export function formatIngredient(
   const displayUnit = unitDef ? unitDisplay(unitDef, qty) : input.unit ?? "";
 
   const noun = pluralizeNoun(input.itemDisplay, qty, !!unitDef);
-  const prep = input.preparation ? `, ${input.preparation}` : "";
+  const prep = formatPreparation(input.preparation);
   const optional = input.isOptional ? " (optional)" : "";
 
   const parts: string[] = [];
@@ -104,6 +108,27 @@ export function formatIngredient(
     displayUnit,
     display,
   };
+}
+
+/**
+ * Render the preparation hint we stored on each ingredient so it reads
+ * naturally on the recipe detail page. Bare prep ("finely chopped") gets
+ * a leading comma; a parenthetical ("(bone-in)") gets a leading space so
+ * we preserve the original parens the user (or the recipe author) wrote.
+ * Mixed prep like "finely chopped (bone-in)" splits at the first paren so
+ * each half formats the way a human would expect.
+ */
+function formatPreparation(prep: string | null | undefined): string {
+  if (!prep) return "";
+  const trimmed = prep.trim();
+  if (!trimmed) return "";
+  const parenIdx = trimmed.indexOf("(");
+  if (parenIdx === -1) return `, ${trimmed}`;
+  if (parenIdx === 0) return ` ${trimmed}`;
+  const head = trimmed.slice(0, parenIdx).trim().replace(/,$/, "").trim();
+  const tail = trimmed.slice(parenIdx).trim();
+  if (!head) return ` ${tail}`;
+  return `, ${head} ${tail}`;
 }
 
 function ceilToHalf(value: number): number {

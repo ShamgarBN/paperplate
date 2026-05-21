@@ -18,6 +18,7 @@ import {
 } from "@/lib/db/recipeRepo";
 import { downloadImage } from "@/lib/scraping/api";
 import { parseIngredient } from "@/lib/ingredients/parser";
+import { isRichTextEmpty } from "@/lib/richtext";
 
 /**
  * Hydrates the DraftEditor with an existing recipe's full content and writes
@@ -63,6 +64,7 @@ export function EditRecipeRoute() {
       itemDisplay: ing.item_display,
       preparation: ing.preparation,
       isOptional: ing.is_optional === 1,
+      sectionName: ing.section_name,
     }));
     setDraft({
       title: data.recipe.title,
@@ -76,10 +78,15 @@ export function EditRecipeRoute() {
       cookMin: data.recipe.cook_min,
       totalMin: data.recipe.total_min,
       difficulty: data.recipe.difficulty,
+      description: data.recipe.description ?? "",
       notes: data.recipe.notes ?? "",
       rawHtml: data.recipe.raw_html,
       ingredients,
-      steps: data.steps.map((s) => s.text),
+      steps: data.steps.map((s) => ({
+        id: crypto.randomUUID(),
+        text: s.text,
+        sectionName: s.section_name,
+      })),
       selectedCategoryIds: new Set(data.categoryIds),
     });
     setHydrated(true);
@@ -128,6 +135,7 @@ export function EditRecipeRoute() {
         cook_min: draft.cookMin,
         total_min: draft.totalMin,
         difficulty: draft.difficulty,
+        description: draft.description.trim() || null,
         notes: draft.notes.trim() || null,
         raw_html: draft.rawHtml,
         ingredients: draft.ingredients
@@ -140,8 +148,11 @@ export function EditRecipeRoute() {
             item_display: ing.itemDisplay,
             preparation: ing.preparation,
             is_optional: ing.isOptional,
+            section_name: ing.sectionName,
           })),
-        steps: draft.steps.filter((s) => s.trim().length > 0),
+        steps: draft.steps
+          .filter((s) => !isRichTextEmpty(s.text))
+          .map((s) => ({ text: s.text, section_name: s.sectionName })),
         categoryIds: [...draft.selectedCategoryIds],
       });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });

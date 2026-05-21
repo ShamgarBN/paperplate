@@ -201,6 +201,100 @@ export async function addRecipeToShoppingList(
   });
 }
 
+/**
+ * Push every assigned recipe in a plan onto the global shopping list,
+ * tagging each new entry with `from_plan_id` so it can be cleanly
+ * removed later via {@link removePlanFromGlobalShoppingList}. Skips
+ * plan-recipes that are already on the list (matched by plan + recipe),
+ * so calling this twice is a no-op rather than producing duplicates.
+ */
+export async function addPlanToGlobalShoppingList(
+  planId: number,
+): Promise<{ inserted: number }> {
+  return withWriteLock(async () => {
+    const db = await getDb();
+    // Read every attached recipe across the plan — junction table is
+    // the canonical source for multi-recipe slots.
+    const attachments = await db.select<
+      Array<{ recipe_id: number; scaled_servings: number | null }>
+    >(
+      `SELECT mpsr.recipe_id, mpsr.scaled_servings
+       FROM meal_plan_slot_recipes mpsr
+       JOIN meal_plan_slots s ON s.id = mpsr.slot_id
+       WHERE s.plan_id = $1`,
+      [planId],
+    );
+    // Deduplicate by recipe within the plan so we don't insert one row
+    // per slot when the same recipe is scheduled twice.
+    const byRecipe = new Map<number, { recipeId: number; servings: number | null }>();
+    for (const a of attachments) {
+      const existing = byRecipe.get(a.recipe_id);
+      const servings = a.scaled_servings ?? null;
+      if (!existing) {
+        byRecipe.set(a.recipe_id, { recipeId: a.recipe_id, servings });
+      } else if (servings != null && (existing.servings ?? 0) < servings) {
+        // Keep the larger of the two so the aggregate is at least as
+        // big as the plan calls for.
+        existing.servings = servings;
+      }
+    }
+    const existingRows = await db.select<Array<{ recipe_id: number }>>(
+      "SELECT recipe_id FROM shopping_list_recipes WHERE from_plan_id = $1",
+      [planId],
+    );
+    const alreadyHave = new Set(existingRows.map((r) => r.recipe_id));
+    let inserted = 0;
+    for (const { recipeId, servings } of byRecipe.values()) {
+      if (alreadyHave.has(recipeId)) continue;
+      await db.execute(
+        "INSERT INTO shopping_list_recipes (recipe_id, scaled_servings, from_plan_id) VALUES ($1, $2, $3)",
+        [recipeId, servings, planId],
+      );
+      inserted += 1;
+    }
+    return { inserted };
+  });
+}
+
+/**
+ * Remove every shopping-list entry that was added by
+ * {@link addPlanToGlobalShoppingList} for this plan. Leaves alone any
+ * recipes the user added to the global list standalone (those have
+ * `from_plan_id = NULL`).
+ */
+export async function removePlanFromGlobalShoppingList(
+  planId: number,
+): Promise<{ removed: number }> {
+  return withWriteLock(async () => {
+    const db = await getDb();
+    const before = await db.select<Array<{ id: number }>>(
+      "SELECT id FROM shopping_list_recipes WHERE from_plan_id = $1",
+      [planId],
+    );
+    await db.execute(
+      "DELETE FROM shopping_list_recipes WHERE from_plan_id = $1",
+      [planId],
+    );
+    return { removed: before.length };
+  });
+}
+
+/**
+ * Returns the count of shopping-list entries that came from this plan.
+ * The UI uses a `> 0` check to flip the button between "Add" / "Remove"
+ * states.
+ */
+export async function countPlanEntriesOnGlobalList(
+  planId: number,
+): Promise<number> {
+  const db = await getDb();
+  const rows = await db.select<Array<{ count: number }>>(
+    "SELECT COUNT(*) AS count FROM shopping_list_recipes WHERE from_plan_id = $1",
+    [planId],
+  );
+  return rows[0]?.count ?? 0;
+}
+
 export async function removeRecipeFromShoppingList(
   entryId: number,
 ): Promise<void> {
@@ -209,6 +303,35 @@ export async function removeRecipeFromShoppingList(
     await db.execute(
       "DELETE FROM shopping_list_recipes WHERE id = $1",
       [entryId],
+    );
+  });
+}
+
+/**
+ * Update the cached servings count for one of the recipes the user has
+ * pushed onto the global shopping list. The aggregator rebuilds the line
+ * items from `scaled_servings` on every read, so changing this value is
+ * how the user scales a recipe up to "4x" without going back to the
+ * recipe detail page.
+ *
+ * Validates that `scaledServings` is a positive integer at the trust
+ * boundary — the call site eventually feeds it into a SQL UPDATE that
+ * widens to support any int, but we don't want a runaway value (negative
+ * or NaN) to corrupt the row and crash the aggregation pass.
+ */
+export async function updateRecipeScaledServings(
+  entryId: number,
+  scaledServings: number,
+): Promise<void> {
+  if (!Number.isFinite(scaledServings) || scaledServings <= 0) {
+    throw new Error("scaledServings must be a positive number");
+  }
+  const rounded = Math.max(1, Math.round(scaledServings));
+  await withWriteLock(async () => {
+    const db = await getDb();
+    await db.execute(
+      "UPDATE shopping_list_recipes SET scaled_servings = $1 WHERE id = $2",
+      [rounded, entryId],
     );
   });
 }
@@ -244,6 +367,28 @@ export async function removeExtraItem(id: number): Promise<void> {
     await db.execute(
       "DELETE FROM shopping_list_items WHERE id = $1",
       [id],
+    );
+  });
+}
+
+/**
+ * Update the aisle label on a standalone shopping list row. Unlike the
+ * aggregate items (which read their aisle from `ingredient_aisle_map`),
+ * extras keep their aisle directly on the row, so this is just a one-
+ * column UPDATE. Trimming + length-bounding happens here so the UI
+ * doesn't have to repeat the validation it would also need on the
+ * Settings → Aisles page.
+ */
+export async function setExtraItemAisle(
+  id: number,
+  aisleName: string,
+): Promise<void> {
+  const aisle = aisleName.trim().slice(0, 60) || "Other";
+  await withWriteLock(async () => {
+    const db = await getDb();
+    await db.execute(
+      "UPDATE shopping_list_items SET aisle = $1 WHERE id = $2",
+      [aisle, id],
     );
   });
 }

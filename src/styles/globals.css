@@ -132,6 +132,59 @@
   }
 }
 
+/* Rich-text step palette. The 8 colors are tuned for legibility on
+   both themes — the dark-mode override below brightens the saturated
+   tones so contrast on the dark surface stays comfortable. Print
+   inherits the light values which is correct for paper. */
+.rt-color-red {
+  color: #c0392b;
+}
+.rt-color-orange {
+  color: #d97706;
+}
+.rt-color-yellow {
+  color: #ca8a04;
+}
+.rt-color-green {
+  color: #16a34a;
+}
+.rt-color-teal {
+  color: #0d9488;
+}
+.rt-color-blue {
+  color: #2563eb;
+}
+.rt-color-purple {
+  color: #7c3aed;
+}
+.rt-color-pink {
+  color: #db2777;
+}
+.dark .rt-color-red {
+  color: #f87171;
+}
+.dark .rt-color-orange {
+  color: #fb923c;
+}
+.dark .rt-color-yellow {
+  color: #facc15;
+}
+.dark .rt-color-green {
+  color: #4ade80;
+}
+.dark .rt-color-teal {
+  color: #2dd4bf;
+}
+.dark .rt-color-blue {
+  color: #60a5fa;
+}
+.dark .rt-color-purple {
+  color: #a78bfa;
+}
+.dark .rt-color-pink {
+  color: #f472b6;
+}
+
 /* Print: drop the chrome (sidebar, top bar, controls) and emit a clean recipe
    page in black ink on white. The recipe detail route opts in by tagging its
    wrapping element with `data-print-root`. */

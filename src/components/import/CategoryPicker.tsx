@@ -12,6 +12,7 @@ const KIND_ORDER: Array<{ kind: CategoryKind; label: string }> = [
   { kind: "cuisine", label: "Cuisine" },
   { kind: "protein", label: "Protein" },
   { kind: "type", label: "Type" },
+  { kind: "cooking_method", label: "Cooking Method" },
   { kind: "effort", label: "Effort" },
   { kind: "dietary", label: "Dietary" },
   { kind: "tag", label: "Tags" },

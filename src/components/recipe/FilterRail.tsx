@@ -8,11 +8,19 @@ import { Star } from "lucide-react";
 const SECTIONS: Array<{
   kind: CategoryKind;
   label: string;
-  storeKey: "cuisines" | "proteins" | "types" | "effort" | "tags" | "dietary";
+  storeKey:
+    | "cuisines"
+    | "proteins"
+    | "types"
+    | "cookingMethods"
+    | "effort"
+    | "tags"
+    | "dietary";
 }> = [
   { kind: "cuisine", label: "Cuisine", storeKey: "cuisines" },
   { kind: "protein", label: "Protein", storeKey: "proteins" },
   { kind: "type", label: "Type", storeKey: "types" },
+  { kind: "cooking_method", label: "Cooking Method", storeKey: "cookingMethods" },
   { kind: "effort", label: "Effort", storeKey: "effort" },
   { kind: "dietary", label: "Dietary", storeKey: "dietary" },
   { kind: "tag", label: "Tags", storeKey: "tags" },
@@ -36,6 +44,7 @@ export function FilterRail({ categories }: FilterRailProps) {
   const cuisines = useLibraryStore((s) => s.selectedCuisines);
   const proteins = useLibraryStore((s) => s.selectedProteins);
   const types = useLibraryStore((s) => s.selectedTypes);
+  const cookingMethods = useLibraryStore((s) => s.selectedCookingMethods);
   const effort = useLibraryStore((s) => s.selectedEffort);
   const tags = useLibraryStore((s) => s.selectedTags);
   const dietary = useLibraryStore((s) => s.selectedDietary);
@@ -48,6 +57,7 @@ export function FilterRail({ categories }: FilterRailProps) {
     cuisines,
     proteins,
     types,
+    cookingMethods,
     effort,
     tags,
     dietary,
@@ -57,6 +67,7 @@ export function FilterRail({ categories }: FilterRailProps) {
     cuisines.length +
     proteins.length +
     types.length +
+    cookingMethods.length +
     effort.length +
     tags.length +
     dietary.length +

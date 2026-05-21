@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "@/lib/scraping/decode";
 import { parseDurationMinutes } from "@/lib/scraping/duration";
 import type { ScrapedRecipe } from "@/lib/scraping/types";
 
@@ -118,11 +119,17 @@ export function microdataToRecipe(
 
 function text(node: Element | null): string | null {
   if (!node) return null;
-  return (node.textContent ?? "").replace(/\s+/g, " ").trim() || null;
+  // textContent already decodes HTML entities, but some sites put extra
+  // whitespace or stray entities (e.g. `&nbsp;`) inside text nodes. The
+  // decoder is idempotent so it's safe to run unconditionally.
+  const raw = (node.textContent ?? "").replace(/\s+/g, " ").trim();
+  return raw ? decodeHtmlEntities(raw) : null;
 }
 
 function attr(node: Element | null, name: string): string | null {
   if (!node) return null;
   const v = node.getAttribute(name);
-  return v ? v.trim() : null;
+  // `getAttribute` returns the literal attribute text, so we have to
+  // decode entities ourselves before downstream consumers see the value.
+  return v ? decodeHtmlEntities(v.trim()) : null;
 }

@@ -23,7 +23,12 @@ import type { Category, CategoryKind } from "@/lib/db/schema";
 const KINDS: Array<{ kind: CategoryKind; label: string; description: string }> = [
   { kind: "cuisine", label: "Cuisine", description: "Italian, Mexican, etc." },
   { kind: "protein", label: "Protein", description: "Chicken, beef, vegetarian." },
-  { kind: "type", label: "Type", description: "Soup, salad, pasta, dessert." },
+  { kind: "type", label: "Type", description: "Main, Side, Dessert, Soup…" },
+  {
+    kind: "cooking_method",
+    label: "Cooking Method",
+    description: "Oven, Grill, Air-Fryer, Slow Cooker…",
+  },
   { kind: "effort", label: "Effort", description: "Quick weeknight to project." },
   { kind: "tag", label: "Tag", description: "Loose labels you invent." },
   { kind: "dietary", label: "Dietary", description: "Gluten-free, dairy-free…" },
@@ -64,7 +69,15 @@ export function CategoriesEditor() {
       (acc[c.kind] ??= []).push(c);
       return acc;
     },
-    { cuisine: [], protein: [], type: [], effort: [], tag: [], dietary: [] },
+    {
+      cuisine: [],
+      protein: [],
+      type: [],
+      cooking_method: [],
+      effort: [],
+      tag: [],
+      dietary: [],
+    },
   );
 
   return (

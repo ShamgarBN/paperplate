@@ -15,6 +15,13 @@ export interface Recipe {
   difficulty: "easy" | "medium" | "hard" | null;
   rating: number | null;
   last_cooked_at: string | null;
+  /**
+   * Narrative blurb pulled from the source page (or written by the user
+   * in the editor). Rendered at the top of the recipe detail page,
+   * directly under the title. Distinct from `notes`, which is meant for
+   * the cook's *own* tasting notes and is rendered at the bottom.
+   */
+  description: string | null;
   notes: string | null;
   raw_html: string | null;
   created_at: string;
@@ -32,6 +39,13 @@ export interface RecipeIngredient {
   item_display: string;
   preparation: string | null;
   is_optional: 0 | 1;
+  /**
+   * Optional grouping label for sub-recipes. When set, the recipe
+   * detail page renders this name as a header above the corresponding
+   * group of ingredients (e.g. "Cake", "Frosting"). NULL means the
+   * row belongs to the unlabelled top-level list.
+   */
+  section_name: string | null;
 }
 
 export interface RecipeStep {
@@ -39,12 +53,23 @@ export interface RecipeStep {
   recipe_id: number;
   position: number;
   text: string;
+  /** See {@link RecipeIngredient.section_name}. */
+  section_name: string | null;
 }
 
+/**
+ * Categorisation axis for a recipe. `type` describes *what the dish is*
+ * ("Main", "Soup/Stew", "Dessert"), whereas `cooking_method` describes
+ * *how it's prepared* ("Oven", "Grill", "Air-Fryer"). They used to share
+ * a single bucket but the user feedback was that "Stir-fry the Pasta" is
+ * a perfectly normal combination, and so the two axes needed to live
+ * independently — see migration 5 for the split.
+ */
 export type CategoryKind =
   | "cuisine"
   | "protein"
   | "type"
+  | "cooking_method"
   | "effort"
   | "tag"
   | "dietary";
@@ -86,9 +111,30 @@ export interface MealPlanSlot {
   plan_id: number;
   date: string;
   slot: MealSlotKind;
+  /**
+   * @deprecated Legacy single-recipe column. Kept for the cleanup pass
+   * and shopping-list aggregation fallback, but the canonical source of
+   * truth for "which recipes are in this slot" is the
+   * `meal_plan_slot_recipes` junction table. New code should consume
+   * {@link PlanSlotWithRecipes.recipes} from `planRepo.ts`.
+   */
   recipe_id: number | null;
+  /** @deprecated See note on `recipe_id`. */
   scaled_servings: number | null;
   is_locked: 0 | 1;
+}
+
+/**
+ * One recipe attached to a meal-plan slot. Slots can have multiple
+ * attachments (e.g. "main course" + "side"), each scaled independently.
+ * Position controls the display order in the calendar cell.
+ */
+export interface MealPlanSlotRecipe {
+  id: number;
+  slot_id: number;
+  recipe_id: number;
+  scaled_servings: number | null;
+  position: number;
 }
 
 export interface ShoppingListSnapshot {

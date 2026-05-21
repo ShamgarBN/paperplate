@@ -17,8 +17,12 @@ export async function listRecipesWithCategories(): Promise<
   RecipeWithCategoryIds[]
 > {
   const db = await getDb();
+  // Default ordering is alphabetical by title (case-insensitive), with
+  // created_at as a stable tiebreaker so two recipes with the same name
+  // never swap places between renders. The library UI doesn't expose a
+  // user-controlled sort yet; if/when it does we can branch here.
   const recipes = await db.select<Recipe[]>(
-    "SELECT * FROM recipes ORDER BY created_at DESC",
+    "SELECT * FROM recipes ORDER BY title COLLATE NOCASE ASC, created_at DESC",
   );
   if (recipes.length === 0) return [];
 
@@ -66,13 +70,18 @@ export async function listCategoriesByKindMap(): Promise<
   Record<CategoryKind, Category[]>
 > {
   const db = await getDb();
+  // Alphabetical within each kind. We keep `sort_order` in the SELECT so
+  // any consumer that wants to override the default ordering still has it
+  // available, but the database returns the list pre-sorted so the UI
+  // doesn't need to re-sort downstream.
   const all = await db.select<Category[]>(
-    "SELECT id, kind, name, sort_order FROM categories ORDER BY kind, sort_order, name",
+    "SELECT id, kind, name, sort_order FROM categories ORDER BY kind, name COLLATE NOCASE ASC",
   );
   const out: Record<CategoryKind, Category[]> = {
     cuisine: [],
     protein: [],
     type: [],
+    cooking_method: [],
     effort: [],
     tag: [],
     dietary: [],

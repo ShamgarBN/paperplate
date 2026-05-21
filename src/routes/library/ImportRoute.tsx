@@ -18,6 +18,7 @@ import { fetchRecipeHtml, downloadImage } from "@/lib/scraping/api";
 import { extractRecipe } from "@/lib/scraping/extract";
 import type { ScrapedRecipe } from "@/lib/scraping/types";
 import { parseIngredient } from "@/lib/ingredients/parser";
+import { isRichTextEmpty } from "@/lib/richtext";
 import { createRecipe, listCategories } from "@/lib/db/recipeRepo";
 import type { Category } from "@/lib/db/schema";
 import { guessCuisineCategoryName } from "@/lib/scraping/cuisineGuess";
@@ -168,6 +169,7 @@ export function ImportRoute() {
         cook_min: draft.cookMin,
         total_min: draft.totalMin,
         difficulty: draft.difficulty,
+        description: draft.description.trim() || null,
         notes: draft.notes.trim() || null,
         raw_html: draft.rawHtml,
         ingredients: draft.ingredients
@@ -180,8 +182,14 @@ export function ImportRoute() {
             item_display: ing.itemDisplay,
             preparation: ing.preparation,
             is_optional: ing.isOptional,
+            section_name: ing.sectionName,
           })),
-        steps: draft.steps.filter((s) => s.trim().length > 0),
+        steps: draft.steps
+          .filter((s) => !isRichTextEmpty(s.text))
+          .map((s) => ({
+            text: s.text,
+            section_name: s.sectionName,
+          })),
         categoryIds: [...draft.selectedCategoryIds],
       });
       queryClient.invalidateQueries({ queryKey: ["recipes"] });
@@ -302,6 +310,7 @@ function scrapedToDraft(
     (raw) => ({
       ...parseIngredient(raw),
       id: crypto.randomUUID(),
+      sectionName: null,
     }),
   );
   const selected = new Set<number>();
@@ -319,10 +328,15 @@ function scrapedToDraft(
     cookMin: recipe.cookMinutes,
     totalMin: recipe.totalMinutes,
     difficulty: recipe.difficulty,
-    notes: recipe.description ?? "",
+    description: recipe.description ?? "",
+    notes: "",
     rawHtml,
     ingredients,
-    steps: recipe.steps,
+    steps: recipe.steps.map((text) => ({
+      id: crypto.randomUUID(),
+      text,
+      sectionName: null,
+    })),
     selectedCategoryIds: selected,
   };
 }

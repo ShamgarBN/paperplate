@@ -55,6 +55,7 @@ export function LibraryRoute() {
   const cuisines = useLibraryStore((s) => s.selectedCuisines);
   const proteins = useLibraryStore((s) => s.selectedProteins);
   const types = useLibraryStore((s) => s.selectedTypes);
+  const cookingMethods = useLibraryStore((s) => s.selectedCookingMethods);
   const effort = useLibraryStore((s) => s.selectedEffort);
   const tags = useLibraryStore((s) => s.selectedTags);
   const dietary = useLibraryStore((s) => s.selectedDietary);
@@ -81,6 +82,11 @@ export function LibraryRoute() {
       if (cuisines.length && !cuisines.some((c) => ids.has(c))) return false;
       if (proteins.length && !proteins.some((c) => ids.has(c))) return false;
       if (types.length && !types.some((c) => ids.has(c))) return false;
+      if (
+        cookingMethods.length &&
+        !cookingMethods.some((c) => ids.has(c))
+      )
+        return false;
       if (effort.length && !effort.some((c) => ids.has(c))) return false;
       if (tags.length && !tags.some((c) => ids.has(c))) return false;
       if (dietary.length && !dietary.some((c) => ids.has(c))) return false;
@@ -92,6 +98,7 @@ export function LibraryRoute() {
     cuisines,
     proteins,
     types,
+    cookingMethods,
     effort,
     tags,
     dietary,
@@ -105,6 +112,7 @@ export function LibraryRoute() {
       ...(data.cuisine ?? []),
       ...(data.protein ?? []),
       ...(data.type ?? []),
+      ...(data.cooking_method ?? []),
       ...(data.effort ?? []),
       ...(data.tag ?? []),
       ...(data.dietary ?? []),

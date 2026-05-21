@@ -16,6 +16,7 @@ const make = (
   position: 0,
   preparation: null,
   is_optional: 0,
+  section_name: null,
   raw_text: partial.raw_text ?? "",
   ...partial,
 });

@@ -96,7 +96,13 @@ export function parseIngredient(input: string): ParsedIngredient {
     }
   }
 
-  // Handle parenthetical alt-quantities like "(about 8 oz)" - drop them.
+  // Handle parenthetical alt-quantities like "(about 8 oz)" — drop them —
+  // and capture the meaningful "(bone-in)" / "(packed)" / "(at room
+  // temperature)" parentheticals so they survive canonicalization. The
+  // canonicalizer aggressively strips punctuation, so anything we want to
+  // show on the recipe detail page has to ride along in the preparation
+  // string instead of the head noun.
+  const preservedParentheticals: string[] = [];
   working = working.replace(/\(([^)]*)\)/g, (_, inner) => {
     const stripped = String(inner).trim().toLowerCase();
     if (
@@ -107,7 +113,9 @@ export function parseIngredient(input: string): ParsedIngredient {
     ) {
       return "";
     }
-    return ` (${inner}) `;
+    const text = String(inner).trim();
+    if (text) preservedParentheticals.push(`(${text})`);
+    return " ";
   });
   working = working.replace(/\s+/g, " ").trim();
 
@@ -125,13 +133,21 @@ export function parseIngredient(input: string): ParsedIngredient {
     canon = { ...upgraded, preparation: canon.preparation };
   }
 
+  // Merge canonicalizer-derived prep (e.g. "finely chopped") with the
+  // parentheticals we yanked out earlier. We keep the parens intact so
+  // the renderer can format them as " (bone-in)" instead of ", bone-in".
+  const prepParts: string[] = [];
+  if (canon.preparation) prepParts.push(canon.preparation);
+  for (const paren of preservedParentheticals) prepParts.push(paren);
+  const preparation = prepParts.length ? prepParts.join(" ") : null;
+
   return {
     raw: input,
     quantity,
     unit: unitToken,
     itemDisplay: canon.display,
     itemCanonical: canon.canonical,
-    preparation: canon.preparation,
+    preparation,
     isOptional,
     isIndivisible: canon.isIndivisible,
     perishable: canon.perishable ?? false,

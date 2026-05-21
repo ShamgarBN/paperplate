@@ -22,6 +22,7 @@ const recipe = (
   difficulty: null,
   rating: null,
   last_cooked_at: null,
+  description: null,
   notes: null,
   raw_html: null,
   created_at: "2026-01-01",
@@ -43,6 +44,7 @@ const ing = (
   raw_text: "",
   preparation: null,
   is_optional: 0,
+  section_name: null,
   ...partial,
 });
 
