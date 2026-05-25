@@ -1,0 +1,18 @@
+{
+  "name": "@paperplate/core",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Shared TypeScript core: types, planner heuristic, scraping, shopping aggregation, Supabase client.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.7.3"
+  }
+}

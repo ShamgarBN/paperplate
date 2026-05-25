@@ -1,0 +1,21 @@
+{
+  "name": "@paperplate/scripts",
+  "private": true,
+  "version": "0.0.0",
+  "description": "One-shot operational scripts (data import, backfills).",
+  "type": "module",
+  "scripts": {
+    "import": "tsx import-from-sqlite.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.46.2",
+    "better-sqlite3": "11.5.0",
+    "dotenv": "16.4.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.12",
+    "@types/node": "25.9.1",
+    "tsx": "4.19.2",
+    "typescript": "5.7.3"
+  }
+}

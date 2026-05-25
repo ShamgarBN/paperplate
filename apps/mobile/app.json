@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Paperplate",
+    "slug": "paperplate",
+    "scheme": "paperplate",
+    "version": "0.1.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.paperplate.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#2E6F70",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.paperplate.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "supabaseUrl": "https://syoyddsbqsoptpcheuvy.supabase.co",
+      "supabaseAnonKey": "sb_publishable_RyHpQRKzMVrN0A4gp-3KTw_HB2Okve7"
+    }
+  }
+}
