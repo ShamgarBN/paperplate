@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,6 +19,7 @@ interface Recipe {
   description: string | null;
   base_servings: number;
   total_min: number | null;
+  image_path: string | null;
 }
 
 interface Category {
@@ -66,7 +68,7 @@ export function LibraryScreen({ onSelect, onAdd }: Props) {
       const [recipesResp, catsResp, linksResp] = await Promise.all([
         supabase
           .from("recipes")
-          .select("id, title, description, base_servings, total_min")
+          .select("id, title, description, base_servings, total_min, image_path")
           .order("title"),
         supabase
           .from("categories")
@@ -299,16 +301,25 @@ export function LibraryScreen({ onSelect, onAdd }: Props) {
         }
         renderItem={({ item }) => (
           <Pressable style={styles.card} onPress={() => onSelect(item.id)}>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.cardMeta}>
-              Serves {item.base_servings}
-              {item.total_min ? ` · ${item.total_min} min` : ""}
-            </Text>
-            {item.description ? (
-              <Text style={styles.cardDesc} numberOfLines={2}>
-                {item.description}
-              </Text>
+            {isHttpUrl(item.image_path) ? (
+              <Image
+                source={{ uri: item.image_path as string }}
+                style={styles.cardImage}
+                resizeMode="cover"
+              />
             ) : null}
+            <View style={styles.cardBody}>
+              <Text style={styles.cardTitle}>{item.title}</Text>
+              <Text style={styles.cardMeta}>
+                Serves {item.base_servings}
+                {item.total_min ? ` · ${item.total_min} min` : ""}
+              </Text>
+              {item.description ? (
+                <Text style={styles.cardDesc} numberOfLines={2}>
+                  {item.description}
+                </Text>
+              ) : null}
+            </View>
           </Pressable>
         )}
       />
@@ -409,14 +420,27 @@ const styles = StyleSheet.create({
   emptyText: { color: "#5f6368", fontSize: 14 },
   card: {
     backgroundColor: "#fff",
-    padding: 18,
     borderRadius: 14,
     shadowColor: "#000",
     shadowOpacity: 0.05,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
+    overflow: "hidden",
   },
+  cardImage: {
+    width: "100%",
+    height: 180,
+    backgroundColor: "#e6dec9",
+  },
+  cardBody: { padding: 18 },
   cardTitle: { fontSize: 18, fontWeight: "600", color: "#202124" },
   cardMeta: { marginTop: 4, color: "#5f6368", fontSize: 13 },
   cardDesc: { marginTop: 8, color: "#3c4043", fontSize: 14, lineHeight: 20 },
 });
+
+function isHttpUrl(value: string | null | undefined): boolean {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("http://") || value.startsWith("https://"))
+  );
+}

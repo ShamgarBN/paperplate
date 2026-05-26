@@ -22,11 +22,23 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "name": "Paperplate",
+      "shortName": "Paperplate",
+      "themeColor": "#2E6F70",
+      "backgroundColor": "#F4EDE0",
+      "display": "standalone",
+      "orientation": "any",
+      "lang": "en",
+      "description": "A recipe book and meal planner for our household."
     },
     "extra": {
       "supabaseUrl": "https://syoyddsbqsoptpcheuvy.supabase.co",
       "supabaseAnonKey": "sb_publishable_RyHpQRKzMVrN0A4gp-3KTw_HB2Okve7"
+    },
+    "experiments": {
+      "baseUrl": "/paperplate"
     }
   }
 }

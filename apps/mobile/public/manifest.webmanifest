@@ -1,0 +1,25 @@
+{
+  "name": "Paperplate",
+  "short_name": "Paperplate",
+  "description": "A recipe book and meal planner for our household.",
+  "start_url": "/paperplate/",
+  "scope": "/paperplate/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F4EDE0",
+  "theme_color": "#2E6F70",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/paperplate/icon-512.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/paperplate/apple-touch-icon.png",
+      "sizes": "1024x1024",
+      "type": "image/png"
+    }
+  ]
+}

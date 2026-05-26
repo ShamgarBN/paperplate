@@ -5,7 +5,8 @@
   "description": "One-shot operational scripts (data import, backfills).",
   "type": "module",
   "scripts": {
-    "import": "tsx import-from-sqlite.ts"
+    "import": "tsx import-from-sqlite.ts",
+    "backfill-images": "tsx backfill-hero-images.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.46.2",

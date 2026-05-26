@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,7 @@ interface Recipe {
   source_url: string | null;
   notes: string | null;
   last_cooked_at: string | null;
+  image_path: string | null;
 }
 
 interface Ingredient {
@@ -69,7 +71,7 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
         supabase
           .from("recipes")
           .select(
-            "id, title, description, base_servings, preferred_servings, prep_min, cook_min, total_min, source_url, notes, last_cooked_at",
+            "id, title, description, base_servings, preferred_servings, prep_min, cook_min, total_min, source_url, notes, last_cooked_at, image_path",
           )
           .eq("id", recipeId)
           .single(),
@@ -185,6 +187,13 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
         onEdit={onEdit ? () => onEdit(recipe.id) : undefined}
       />
       <ScrollView contentContainerStyle={styles.scroll}>
+        {isHttpUrl(recipe.image_path) ? (
+          <Image
+            source={{ uri: recipe.image_path as string }}
+            style={styles.heroImage}
+            resizeMode="cover"
+          />
+        ) : null}
         <Text style={styles.title}>{recipe.title}</Text>
 
         {recipe.description ? (
@@ -427,6 +436,13 @@ function formatQuantity(n: number): string {
   return Number.isInteger(n) ? String(n) : (Math.round(n * 100) / 100).toString();
 }
 
+function isHttpUrl(value: string | null | undefined): boolean {
+  return (
+    typeof value === "string" &&
+    (value.startsWith("http://") || value.startsWith("https://"))
+  );
+}
+
 function isCookedToday(iso: string | null): boolean {
   if (!iso) return false;
   const now = new Date();
@@ -473,6 +489,13 @@ const styles = StyleSheet.create({
   editBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 
   scroll: { padding: 24, paddingBottom: 60 },
+  heroImage: {
+    width: "100%",
+    height: 240,
+    borderRadius: 14,
+    backgroundColor: "#e6dec9",
+    marginBottom: 14,
+  },
   title: {
     fontSize: 28,
     fontWeight: "700",
