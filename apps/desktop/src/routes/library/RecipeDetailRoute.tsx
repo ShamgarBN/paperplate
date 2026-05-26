@@ -6,6 +6,8 @@ import {
   ChevronLeft,
   Clock,
   ExternalLink,
+  ImageDown,
+  Loader2,
   Pencil,
   Printer,
   ShoppingBasket,
@@ -47,6 +49,9 @@ import { toRenderableHtml } from "@/lib/richtext";
 import { localImageUrl } from "@/lib/assetUrl";
 import { printCurrentWindow } from "@/lib/print";
 import { addRecipeToShoppingList } from "@/lib/db/globalShoppingRepo";
+import { fetchRecipeHtml } from "@/lib/scraping/api";
+import { findHeroImage } from "@/lib/scraping/heroImage";
+import { uploadFromUrl } from "@/lib/uploadImage";
 import { format, isSameDay as dfIsSameDay } from "date-fns";
 
 /**
@@ -223,6 +228,49 @@ export function RecipeDetailRoute() {
     onError: showError("Could not update categories"),
   });
 
+  // One-shot hero-image recovery. Re-scrapes the recipe's source URL,
+  // finds the best image candidate (JSON-LD → og:image → twitter:image
+  // → first <img>), and writes it back. Prefers Supabase-Storage-hosted
+  // copies but falls back to the raw scraped URL if the cross-origin
+  // download fails — matches what the import flow does for fresh
+  // recipes.
+  const refetchHeroMutation = useMutation({
+    mutationFn: async (): Promise<string> => {
+      const r = recipeQuery.data?.recipe;
+      if (!r?.source_url) {
+        throw new Error("This recipe has no source URL to re-fetch from.");
+      }
+      const fetched = await fetchRecipeHtml(r.source_url);
+      if (fetched.status >= 400) {
+        throw new Error(`Source page returned HTTP ${fetched.status}.`);
+      }
+      const imageUrl = findHeroImage(
+        fetched.html,
+        fetched.finalUrl || r.source_url,
+      );
+      if (!imageUrl) {
+        throw new Error("No image found on the source page.");
+      }
+      let imagePath: string;
+      try {
+        const result = await uploadFromUrl(imageUrl);
+        imagePath = result.relativePath;
+      } catch {
+        // CORS / dead link / etc. — fall back to the raw URL so the
+        // recipe still has a hero, even if it's not Storage-hosted.
+        imagePath = imageUrl;
+      }
+      await updateRecipe(id, { image_path: imagePath });
+      return imagePath;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["recipe", id] });
+      queryClient.invalidateQueries({ queryKey: ["recipes"] });
+      toast.success("Hero image updated.");
+    },
+    onError: showError("Could not refresh hero image"),
+  });
+
   const addToShoppingMutation = useMutation({
     mutationFn: async () =>
       addRecipeToShoppingList(
@@ -372,6 +420,30 @@ export function RecipeDetailRoute() {
             <ShoppingBasket className="h-4 w-4" />
             Add to shopping list
           </Button>
+          {recipe.source_url && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={
+                imgUrl
+                  ? "Re-fetch hero image from source"
+                  : "Fetch hero image from source"
+              }
+              title={
+                imgUrl
+                  ? "Re-fetch hero image from source"
+                  : "Fetch hero image from source"
+              }
+              onClick={() => refetchHeroMutation.mutate()}
+              disabled={refetchHeroMutation.isPending}
+            >
+              {refetchHeroMutation.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImageDown className="h-4 w-4" />
+              )}
+            </Button>
+          )}
           <Button
             asChild
             variant="ghost"
