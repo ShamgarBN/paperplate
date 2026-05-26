@@ -97,15 +97,23 @@ export function ImportRoute() {
       toast.success(
         `Pulled ${next.ingredients.length} ingredients and ${next.steps.length} steps from ${parsed.hostname}.`,
       );
-      // Best-effort: download hero image immediately so the recipe survives a
-      // dead link later. Errors are silent — the user can retry from the
-      // "Cache image" button below if it fails.
+      // Best-effort: download hero image immediately so the recipe survives
+      // a dead link later AND so the iPad PWA (which renders strictly from
+      // `image_path`) has something to display. If the cross-origin fetch
+      // fails (common — recipe-blog CDNs often block it), surface a toast
+      // so the user knows to either pick a local file or use the "Cache
+      // image" button below. Previously this swallowed errors silently and
+      // recipes ended up saved with `image_path = null`, leaving iPad with
+      // a blank hero.
       if (next.imageUrl && !next.imagePath) {
         try {
           const result = await uploadFromUrl(next.imageUrl);
           setDraft((d) => ({ ...d, imagePath: result.relativePath }));
-        } catch {
-          // ignore — manual button stays available as fallback
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          toast.warning(
+            `Couldn't auto-save the hero image (${message}). Drop in a local file or tap "Cache image" before saving.`,
+          );
         }
       }
     } catch (err) {
@@ -161,10 +169,15 @@ export function ImportRoute() {
     }
     setSaving(true);
     try {
+      // Prefer the Supabase-Storage-hosted copy (`imagePath`); fall back
+      // to the original scraped URL (`imageUrl`) if the upload failed so
+      // the iPad PWA still has SOMETHING to render. The "Cache image"
+      // button on the recipe detail / editor can re-host it later.
+      const heroImage = draft.imagePath ?? draft.imageUrl ?? null;
       const id = await createRecipe({
         title: draft.title.trim(),
         source_url: draft.sourceUrl.trim() || null,
-        image_path: draft.imagePath,
+        image_path: heroImage,
         base_servings: Math.max(1, Math.round(draft.servings)),
         prep_min: draft.prepMin,
         cook_min: draft.cookMin,
