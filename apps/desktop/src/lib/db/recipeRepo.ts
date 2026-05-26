@@ -198,32 +198,12 @@ export async function listRecipes(): Promise<Recipe[]> {
 }
 
 export async function deleteRecipe(id: number): Promise<void> {
-  // Check whether the hero image is shared with another recipe before
-  // queuing it for filesystem cleanup. Image cleanup itself stays on the
-  // Tauri side (`@/lib/backup.deleteRecipeImage`) since the file lives in
-  // the local images cache — Storage-based images will replace this later.
-  const { data: ours } = await supabase
-    .from("recipes")
-    .select("image_path")
-    .eq("id", id)
-    .maybeSingle();
-  const imagePath = (ours?.image_path as string | null | undefined) ?? null;
+  // Hero images live in Supabase Storage now. We don't actively clean up
+  // orphaned storage objects when a recipe is deleted — a periodic pass
+  // can scrub orphans later. The Storage cost for a handful of unused
+  // images is negligible.
   const { error } = await supabase.from("recipes").delete().eq("id", id);
   if (error) throw error;
-  if (imagePath) {
-    const { count } = await supabase
-      .from("recipes")
-      .select("id", { count: "exact", head: true })
-      .eq("image_path", imagePath);
-    if ((count ?? 0) === 0) {
-      try {
-        const { deleteRecipeImage } = await import("@/lib/backup");
-        await deleteRecipeImage(imagePath);
-      } catch {
-        /* orphan image is not worth surfacing */
-      }
-    }
-  }
 }
 
 const RECIPE_UPDATE_COLUMNS = new Set([

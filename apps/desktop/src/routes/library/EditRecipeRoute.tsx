@@ -16,7 +16,7 @@ import {
   listCategories,
   updateRecipeFull,
 } from "@/lib/db/recipeRepo";
-import { downloadImage } from "@/lib/scraping/api";
+import { uploadFromUrl } from "@/lib/uploadImage";
 import { parseIngredient } from "@/lib/ingredients/parser";
 import { isRichTextEmpty } from "@/lib/richtext";
 
@@ -104,7 +104,7 @@ export function EditRecipeRoute() {
     if (!draft.imageUrl) return;
     setDownloadingImage(true);
     try {
-      const result = await downloadImage(draft.imageUrl);
+      const result = await uploadFromUrl(draft.imageUrl);
       setDraft((d) => ({ ...d, imagePath: result.relativePath }));
     } catch (err) {
       toast.error(

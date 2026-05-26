@@ -14,7 +14,8 @@ import {
   type DraftState,
 } from "@/components/import/DraftEditor";
 import { type ReviewableIngredient } from "@/components/import/IngredientReviewer";
-import { fetchRecipeHtml, downloadImage } from "@/lib/scraping/api";
+import { fetchRecipeHtml } from "@/lib/scraping/api";
+import { uploadFromUrl } from "@/lib/uploadImage";
 import { extractRecipe } from "@/lib/scraping/extract";
 import type { ScrapedRecipe } from "@/lib/scraping/types";
 import { parseIngredient } from "@/lib/ingredients/parser";
@@ -101,7 +102,7 @@ export function ImportRoute() {
       // "Cache image" button below if it fails.
       if (next.imageUrl && !next.imagePath) {
         try {
-          const result = await downloadImage(next.imageUrl);
+          const result = await uploadFromUrl(next.imageUrl);
           setDraft((d) => ({ ...d, imagePath: result.relativePath }));
         } catch {
           // ignore — manual button stays available as fallback
@@ -130,9 +131,9 @@ export function ImportRoute() {
     if (!draft.imageUrl) return;
     setDownloadingImage(true);
     try {
-      const result = await downloadImage(draft.imageUrl);
+      const result = await uploadFromUrl(draft.imageUrl);
       setDraft((d) => ({ ...d, imagePath: result.relativePath }));
-      toast.success("Saved hero image locally.");
+      toast.success("Saved hero image to Storage.");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       toast.error(`Image download failed: ${message}`);
