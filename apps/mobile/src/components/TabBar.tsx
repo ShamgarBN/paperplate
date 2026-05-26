@@ -1,4 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { colors, fonts, radii } from "../theme/tokens";
 
 export type Tab = "library" | "plans" | "shopping" | "settings";
 
@@ -62,9 +63,9 @@ function TabButton({
 const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: "#e6dec9",
+    borderTopColor: colors.border,
     paddingTop: 8,
     paddingBottom: 24,
   },
@@ -74,6 +75,6 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   icon: { fontSize: 22, marginBottom: 2 },
-  label: { fontSize: 12, color: "#5f6368", fontWeight: "500" },
-  labelActive: { color: "#2e6f70", fontWeight: "700" },
+  label: { fontSize: 12, color: colors.mutedFg, fontWeight: "500" },
+  labelActive: { color: colors.primary, fontWeight: "700" },
 });

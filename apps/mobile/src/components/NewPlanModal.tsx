@@ -21,6 +21,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface Props {
   visible: boolean;
@@ -123,7 +124,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
             ]}
           >
             {saving ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={colors.card} size="small" />
             ) : (
               <Text style={styles.saveBtnText}>Save</Text>
             )}
@@ -145,7 +146,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
               placeholder={
                 range ? defaultLabel(range) : "e.g. Memorial Day Week"
               }
-              placeholderTextColor="#9aa0a6"
+              placeholderTextColor={colors.mutedFg}
             />
 
             <View style={styles.row2}>
@@ -159,7 +160,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
                   value={start}
                   onChangeText={setStart}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#9aa0a6"
+                  placeholderTextColor={colors.mutedFg}
                   keyboardType="numbers-and-punctuation"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -175,7 +176,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
                   value={end}
                   onChangeText={setEnd}
                   placeholder="YYYY-MM-DD"
-                  placeholderTextColor="#9aa0a6"
+                  placeholderTextColor={colors.mutedFg}
                   keyboardType="numbers-and-punctuation"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -200,7 +201,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
               <Switch
                 value={includeBreakfast}
                 onValueChange={setIncludeBreakfast}
-                trackColor={{ true: "#2e6f70", false: "#cdcdcd" }}
+                trackColor={{ true: colors.primary, false: "#cdcdcd" }}
                 ios_backgroundColor="#cdcdcd"
               />
             </View>
@@ -209,7 +210,7 @@ export function NewPlanModal({ visible, onClose, onCreated }: Props) {
               <Switch
                 value={includeLunch}
                 onValueChange={setIncludeLunch}
-                trackColor={{ true: "#2e6f70", false: "#cdcdcd" }}
+                trackColor={{ true: colors.primary, false: "#cdcdcd" }}
                 ios_backgroundColor="#cdcdcd"
               />
             </View>
@@ -264,62 +265,62 @@ function defaultLabel(range: string[]): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
   cancel: { paddingHorizontal: 12, paddingVertical: 6 },
-  cancelText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  cancelText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   heading: {
     flex: 1,
     fontSize: 17,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   saveBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  saveBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
 
   body: { padding: 24 },
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#3c4043",
+    color: colors.fg,
     marginTop: 12,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#202124",
+    color: colors.fg,
   },
-  inputError: { borderColor: "#b3261e" },
+  inputError: { borderColor: colors.destructive },
   row2: { flexDirection: "row" },
-  help: { fontSize: 12, color: "#5f6368", marginTop: 6 },
-  helpError: { fontSize: 12, color: "#b3261e", marginTop: 6 },
+  help: { fontSize: 12, color: colors.mutedFg, marginTop: 6 },
+  helpError: { fontSize: 12, color: colors.destructive, marginTop: 6 },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
-  toggleLabel: { flex: 1, fontSize: 15, color: "#202124" },
-  alwaysOn: { color: "#5f6368", fontSize: 13, fontStyle: "italic" },
+  toggleLabel: { flex: 1, fontSize: 15, color: colors.fg },
+  alwaysOn: { color: colors.mutedFg, fontSize: 13, fontStyle: "italic" },
 });

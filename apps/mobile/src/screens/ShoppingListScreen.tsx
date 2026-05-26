@@ -28,6 +28,7 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { printHtml, shoppingListPrintHtml } from "../lib/print";
+import { colors, fonts, radii } from "../theme/tokens";
 import {
   buildShoppingList,
   type MealPlanSlot,
@@ -357,7 +358,7 @@ export function ShoppingListScreen() {
           <Text style={styles.headerTitle}>Shopping list</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -393,7 +394,7 @@ export function ShoppingListScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor="#2e6f70"
+              tintColor={colors.primary}
             />
           }
           keyboardShouldPersistTaps="handled"
@@ -407,7 +408,7 @@ export function ShoppingListScreen() {
                 value={addName}
                 onChangeText={setAddName}
                 placeholder="Item name"
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
                 returnKeyType="done"
                 onSubmitEditing={addExtraItem}
               />
@@ -416,7 +417,7 @@ export function ShoppingListScreen() {
                 value={addQty}
                 onChangeText={setAddQty}
                 placeholder="Qty"
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
                 keyboardType="decimal-pad"
               />
               <TextInput
@@ -424,7 +425,7 @@ export function ShoppingListScreen() {
                 value={addUnit}
                 onChangeText={setAddUnit}
                 placeholder="Unit"
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
               />
             </View>
             <View style={styles.aislePickerRow}>
@@ -460,7 +461,7 @@ export function ShoppingListScreen() {
               disabled={!addName.trim() || adding}
             >
               {adding ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.card} size="small" />
               ) : (
                 <Text style={styles.addBtnText}>Add to list</Text>
               )}
@@ -572,33 +573,33 @@ function formatNumber(n: number): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 
   header: {
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
     flexDirection: "row",
     alignItems: "baseline",
   },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  headerMeta: { color: "#5f6368", fontSize: 14, marginRight: 12 },
+  headerTitle: { fontSize: 28, fontWeight: "700", color: colors.primary, flex: 1 },
+  headerMeta: { color: colors.mutedFg, fontSize: 14, marginRight: 12 },
   printBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#2e6f70",
+    borderColor: colors.primary,
   },
-  printBtnText: { color: "#2e6f70", fontSize: 13, fontWeight: "600" },
+  printBtnText: { color: colors.primary, fontSize: 13, fontWeight: "600" },
 
   scroll: { padding: 16, paddingBottom: 60 },
 
   addCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
@@ -606,20 +607,20 @@ const styles = StyleSheet.create({
   addHeading: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#5f6368",
+    color: colors.mutedFg,
     letterSpacing: 0.5,
     marginBottom: 10,
   },
   addRow: { flexDirection: "row", marginBottom: 10 },
   addInput: {
-    backgroundColor: "#fafafa",
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#202124",
+    color: colors.fg,
     marginRight: 6,
   },
   aislePickerRow: {
@@ -632,25 +633,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     marginRight: 6,
     marginBottom: 6,
   },
-  aisleChipActive: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  aisleChipText: { fontSize: 12, color: "#3c4043", fontWeight: "500" },
-  aisleChipTextActive: { color: "#fff" },
+  aisleChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  aisleChipText: { fontSize: 12, color: colors.fg, fontWeight: "500" },
+  aisleChipTextActive: { color: colors.card },
   addBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
   },
   addBtnDisabled: { opacity: 0.5 },
-  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  addBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
 
   recipesCard: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     marginBottom: 16,
@@ -660,23 +661,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
-  recipeRowTitle: { fontSize: 15, color: "#202124", fontWeight: "500" },
-  recipeRowMeta: { fontSize: 12, color: "#5f6368", marginTop: 2 },
+  recipeRowTitle: { fontSize: 15, color: colors.fg, fontWeight: "500" },
+  recipeRowMeta: { fontSize: 12, color: colors.mutedFg, marginTop: 2 },
   removeBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  removeBtnText: { color: "#b3261e", fontSize: 13, fontWeight: "600" },
+  removeBtnText: { color: colors.destructive, fontSize: 13, fontWeight: "600" },
 
   emptyBox: { padding: 32, alignItems: "center" },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#3c4043",
+    color: colors.fg,
     marginBottom: 6,
   },
   emptyBody: {
     fontSize: 14,
-    color: "#5f6368",
+    color: colors.mutedFg,
     textAlign: "center",
     maxWidth: 320,
   },
@@ -685,7 +686,7 @@ const styles = StyleSheet.create({
   groupHeader: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#5f6368",
+    color: colors.mutedFg,
     letterSpacing: 1,
     marginBottom: 8,
     paddingHorizontal: 4,
@@ -693,7 +694,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
     marginBottom: 6,
@@ -703,22 +704,22 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#c4c4c4",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
     marginTop: 1,
   },
-  checkboxChecked: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  tick: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tick: { color: colors.card, fontSize: 16, fontWeight: "700" },
   rowBody: { flex: 1 },
-  itemName: { fontSize: 15, color: "#202124", fontWeight: "500" },
+  itemName: { fontSize: 15, color: colors.fg, fontWeight: "500" },
   itemNameChecked: {
-    color: "#9aa0a6",
+    color: colors.mutedFg,
     textDecorationLine: "line-through",
   },
-  itemQty: { fontSize: 13, color: "#5f6368", marginTop: 2 },
-  itemQtyChecked: { color: "#bdc1c6" },
-  contributors: { fontSize: 11, color: "#9aa0a6", marginTop: 4 },
-  optional: { color: "#9aa0a6", fontStyle: "italic", fontSize: 13 },
+  itemQty: { fontSize: 13, color: colors.mutedFg, marginTop: 2 },
+  itemQtyChecked: { color: colors.mutedFg },
+  contributors: { fontSize: 11, color: colors.mutedFg, marginTop: 4 },
+  optional: { color: colors.mutedFg, fontStyle: "italic", fontSize: 13 },
 });

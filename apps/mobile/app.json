@@ -3,7 +3,7 @@
     "name": "Paperplate",
     "slug": "paperplate",
     "scheme": "paperplate",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -39,6 +39,11 @@
     },
     "experiments": {
       "baseUrl": "/paperplate"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-splash-screen",
+      "expo-asset"
+    ]
   }
 }

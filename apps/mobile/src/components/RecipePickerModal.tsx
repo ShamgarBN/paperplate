@@ -15,6 +15,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface Recipe {
   id: number;
@@ -87,7 +88,7 @@ export function RecipePickerModal({
             value={query}
             onChangeText={setQuery}
             placeholder="Search recipes..."
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
             autoCorrect={false}
             autoCapitalize="none"
             clearButtonMode="while-editing"
@@ -99,7 +100,7 @@ export function RecipePickerModal({
           </View>
         ) : !filtered ? (
           <View style={styles.centered}>
-            <ActivityIndicator color="#2e6f70" size="large" />
+            <ActivityIndicator color={colors.primary} size="large" />
           </View>
         ) : (
           <FlatList
@@ -136,48 +137,48 @@ export function RecipePickerModal({
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
   cancel: { paddingHorizontal: 12, paddingVertical: 6 },
-  cancelText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  cancelText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   heading: {
     flex: 1,
     fontSize: 17,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   headerSpacer: { width: 70 },
 
-  searchWrap: { padding: 16, borderBottomWidth: 1, borderBottomColor: "#e6dec9" },
+  searchWrap: { padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border },
   search: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#202124",
+    color: colors.fg,
   },
 
   list: { padding: 16 },
   sep: { height: 8 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  muted: { color: "#5f6368", fontSize: 14 },
-  errorText: { color: "#b3261e", fontSize: 14, padding: 24 },
+  muted: { color: colors.mutedFg, fontSize: 14 },
+  errorText: { color: colors.destructive, fontSize: 14, padding: 24 },
   row: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
   },
-  rowTitle: { fontSize: 16, fontWeight: "600", color: "#202124" },
-  rowMeta: { fontSize: 12, color: "#5f6368", marginTop: 4 },
+  rowTitle: { fontSize: 16, fontWeight: "600", color: colors.fg },
+  rowMeta: { fontSize: 12, color: colors.mutedFg, marginTop: 4 },
 });

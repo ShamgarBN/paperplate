@@ -25,6 +25,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface Category {
   id: number;
@@ -266,7 +267,7 @@ export function SettingsScreen() {
           <Text style={styles.headerTitle}>Settings</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -321,7 +322,7 @@ export function SettingsScreen() {
                     setNewPerKind((prev) => ({ ...prev, [key]: t }))
                   }
                   placeholder={`Add ${label.toLowerCase()}...`}
-                  placeholderTextColor="#9aa0a6"
+                  placeholderTextColor={colors.mutedFg}
                   returnKeyType="done"
                   onSubmitEditing={() => addCategory(key)}
                 />
@@ -377,7 +378,7 @@ export function SettingsScreen() {
             value={newAisle}
             onChangeText={setNewAisle}
             placeholder="Add aisle..."
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
             returnKeyType="done"
             onSubmitEditing={addAisle}
           />
@@ -403,35 +404,35 @@ export function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 
   header: {
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70" },
+  headerTitle: { fontSize: 28, fontWeight: "700", color: colors.primary },
 
   scroll: { padding: 16, paddingBottom: 80 },
   sectionHeading: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     marginTop: 4,
     marginBottom: 4,
   },
   sectionBlurb: {
     fontSize: 13,
-    color: "#5f6368",
+    color: colors.mutedFg,
     marginBottom: 14,
     lineHeight: 18,
   },
 
   kindBlock: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
@@ -439,7 +440,7 @@ const styles = StyleSheet.create({
   kindHeader: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#5f6368",
+    color: colors.mutedFg,
     letterSpacing: 1,
     marginBottom: 6,
   },
@@ -449,20 +450,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
   itemMain: { flex: 1, flexDirection: "row", alignItems: "baseline" },
-  itemName: { fontSize: 15, color: "#202124" },
+  itemName: { fontSize: 15, color: colors.fg },
   itemMeta: {
     marginLeft: 8,
-    color: "#9aa0a6",
+    color: colors.mutedFg,
     fontSize: 11,
     fontStyle: "italic",
   },
   deleteBtn: { paddingHorizontal: 10, paddingVertical: 4 },
-  deleteBtnText: { color: "#b3261e", fontSize: 16, fontWeight: "700" },
+  deleteBtnText: { color: colors.destructive, fontSize: 16, fontWeight: "700" },
   emptyText: {
-    color: "#9aa0a6",
+    color: colors.mutedFg,
     fontSize: 13,
     fontStyle: "italic",
     paddingVertical: 4,
@@ -471,34 +472,34 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: "row", marginTop: 8 },
   addInput: {
     flex: 1,
-    backgroundColor: "#fafafa",
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 14,
-    color: "#202124",
+    color: colors.fg,
     marginRight: 6,
   },
   addBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
     justifyContent: "center",
   },
   addBtnDisabled: { opacity: 0.4 },
-  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  addBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
 
   signOutBtn: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#b3261e",
+    borderColor: colors.destructive,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
     marginTop: 8,
   },
-  signOutText: { color: "#b3261e", fontSize: 15, fontWeight: "600" },
+  signOutText: { color: colors.destructive, fontSize: 15, fontWeight: "600" },
 });

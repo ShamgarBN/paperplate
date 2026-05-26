@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { NewPlanModal } from "../components/NewPlanModal";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface PlanRow {
   id: number;
@@ -81,7 +82,7 @@ export function PlansScreen({ onSelect }: Props) {
           <Text style={styles.headerTitle}>Plans</Text>
         </View>
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -148,43 +149,43 @@ function fmtDate(iso: string): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
   header: {
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
     flexDirection: "row",
     alignItems: "baseline",
   },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  headerMeta: { color: "#5f6368", fontSize: 14, marginRight: 12 },
+  headerTitle: { fontSize: 28, fontWeight: "700", color: colors.primary, flex: 1 },
+  headerMeta: { color: colors.mutedFg, fontSize: 14, marginRight: 12 },
   newBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
   },
-  newBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  newBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
   list: { padding: 16 },
   sep: { height: 12 },
   emptyBox: { padding: 32, alignItems: "center" },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#3c4043",
+    color: colors.fg,
     marginBottom: 6,
   },
   emptyBody: {
     fontSize: 14,
-    color: "#5f6368",
+    color: colors.mutedFg,
     textAlign: "center",
     maxWidth: 320,
   },
   card: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 18,
     borderRadius: 14,
     shadowColor: "#000",
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
   },
-  cardTitle: { fontSize: 18, fontWeight: "600", color: "#202124" },
-  cardRange: { marginTop: 4, color: "#3c4043", fontSize: 14 },
-  cardMeta: { marginTop: 6, color: "#5f6368", fontSize: 13 },
+  cardTitle: { fontSize: 18, fontWeight: "600", color: colors.fg },
+  cardRange: { marginTop: 4, color: colors.fg, fontSize: 14 },
+  cardMeta: { marginTop: 6, color: colors.mutedFg, fontSize: 13 },
 });

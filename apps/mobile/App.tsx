@@ -2,6 +2,17 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { Session } from "@supabase/supabase-js";
+import {
+  useFonts,
+  Fraunces_500Medium,
+  Fraunces_700Bold,
+} from "@expo-google-fonts/fraunces";
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from "@expo-google-fonts/inter";
 import { supabase } from "./src/lib/supabase";
 import { SignInScreen } from "./src/screens/SignInScreen";
 import { LibraryScreen } from "./src/screens/LibraryScreen";
@@ -14,8 +25,20 @@ import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AddRecipeScreen } from "./src/screens/AddRecipeScreen";
 import { EditRecipeScreen } from "./src/screens/EditRecipeScreen";
 import { TabBar, type Tab } from "./src/components/TabBar";
+import { colors } from "./src/theme/tokens";
 
 export default function App() {
+  // Load the Fraunces (display) + Inter (sans) families before rendering
+  // anything so the first paint doesn't flash a system font.
+  const [fontsLoaded] = useFonts({
+    Fraunces_500Medium,
+    Fraunces_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
   const [session, setSession] = useState<Session | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
   const [tab, setTab] = useState<Tab>("library");
@@ -49,10 +72,10 @@ export default function App() {
     };
   }, []);
 
-  if (!bootstrapped) {
+  if (!fontsLoaded || !bootstrapped) {
     return (
       <View style={styles.splash}>
-        <ActivityIndicator color="#2e6f70" size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
         <StatusBar style="auto" />
       </View>
     );
@@ -166,10 +189,10 @@ export default function App() {
 const styles = StyleSheet.create({
   splash: {
     flex: 1,
-    backgroundColor: "#f4ede0",
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
   },
-  appRoot: { flex: 1, backgroundColor: "#f4ede0" },
+  appRoot: { flex: 1, backgroundColor: colors.bg },
   appBody: { flex: 1 },
 });

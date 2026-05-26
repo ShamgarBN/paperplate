@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { printHtml, recipePrintHtml } from "../lib/print";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface Recipe {
   id: number;
@@ -183,7 +184,7 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
       <SafeAreaView style={styles.root}>
         <Header onBack={onBack} title="" />
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -286,7 +287,7 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
             ]}
           >
             {cookedState === "marking" ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.card} />
             ) : (
               <Text style={styles.actionBtnText}>
                 {cookedState === "marked" ? "Cooked today ✓" : "Cooked today"}
@@ -303,7 +304,7 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
             ]}
           >
             {addedState === "adding" ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color={colors.card} />
             ) : (
               <Text style={styles.actionBtnText}>
                 {addedState === "added" ? "Added ✓" : "Add to shopping list"}
@@ -474,9 +475,9 @@ function isCookedToday(iso: string | null): boolean {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 
   header: {
     flexDirection: "row",
@@ -484,47 +485,47 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
-    backgroundColor: "#f4ede0",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
   },
   back: { paddingHorizontal: 12, paddingVertical: 6 },
-  backText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   headerTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   headerSpacer: { width: 100 },
   editBtn: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     borderRadius: 8,
     width: 80,
     alignItems: "center",
   },
-  editBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  editBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
 
   scroll: { padding: 24, paddingBottom: 60 },
   heroImage: {
     width: "100%",
     height: 240,
     borderRadius: 14,
-    backgroundColor: "#e6dec9",
+    backgroundColor: colors.border,
     marginBottom: 14,
   },
   title: {
     fontSize: 28,
     fontWeight: "700",
-    color: "#202124",
+    color: colors.fg,
     marginBottom: 8,
   },
   description: {
     fontSize: 15,
     lineHeight: 22,
-    color: "#3c4043",
+    color: colors.fg,
     marginBottom: 16,
     fontStyle: "italic",
   },
@@ -537,13 +538,13 @@ const styles = StyleSheet.create({
   scalerLabel: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#5f6368",
+    color: colors.mutedFg,
     marginRight: 12,
   },
   scalerValue: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#202124",
+    color: colors.fg,
     minWidth: 36,
     textAlign: "center",
   },
@@ -551,18 +552,18 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
   stepBtnDisabled: { opacity: 0.4 },
-  stepBtnText: { fontSize: 22, fontWeight: "700", color: "#2e6f70", lineHeight: 24 },
+  stepBtnText: { fontSize: 22, fontWeight: "700", color: colors.primary, lineHeight: 24 },
   timePill: {
     marginLeft: "auto",
-    backgroundColor: "#e6dec9",
-    color: "#5f4a1a",
+    backgroundColor: colors.border,
+    color: colors.fg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
@@ -581,33 +582,33 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     marginRight: 6,
     marginBottom: 6,
   },
-  presetBtnActive: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  presetText: { fontSize: 13, color: "#3c4043", fontWeight: "600" },
-  presetTextActive: { color: "#fff" },
+  presetBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  presetText: { fontSize: 13, color: colors.fg, fontWeight: "600" },
+  presetTextActive: { color: colors.card },
 
   actionsRow: { flexDirection: "row", marginBottom: 8 },
   actionBtn: {
     flex: 1,
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
     marginRight: 8,
   },
-  actionBtnSecondary: { backgroundColor: "#5f8b8b" },
-  actionBtnTertiary: { backgroundColor: "#7a8a8a", marginRight: 0 },
+  actionBtnSecondary: { backgroundColor: colors.secondary },
+  actionBtnTertiary: { backgroundColor: colors.secondary, marginRight: 0 },
   actionBtnDone: { backgroundColor: "#7fb069" },
-  actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  actionBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
 
   sectionHeading: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     marginTop: 24,
     marginBottom: 12,
   },
@@ -615,21 +616,21 @@ const styles = StyleSheet.create({
   subsection: {
     fontSize: 15,
     fontWeight: "600",
-    color: "#5f6368",
+    color: colors.mutedFg,
     marginTop: 8,
     marginBottom: 6,
   },
   ingredientRow: { flexDirection: "row", marginBottom: 6 },
-  bullet: { color: "#2e6f70", fontSize: 16, width: 16, marginTop: 1 },
-  ingredientText: { flex: 1, fontSize: 15, color: "#202124", lineHeight: 22 },
-  optional: { color: "#5f6368", fontStyle: "italic" },
+  bullet: { color: colors.primary, fontSize: 16, width: 16, marginTop: 1 },
+  ingredientText: { flex: 1, fontSize: 15, color: colors.fg, lineHeight: 22 },
+  optional: { color: colors.mutedFg, fontStyle: "italic" },
   stepRow: { flexDirection: "row", marginBottom: 12, alignItems: "flex-start" },
   stepNum: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#2e6f70",
-    color: "#fff",
+    backgroundColor: colors.primary,
+    color: colors.card,
     textAlign: "center",
     lineHeight: 28,
     fontWeight: "700",
@@ -637,7 +638,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
     overflow: "hidden",
   },
-  stepText: { flex: 1, fontSize: 15, color: "#202124", lineHeight: 22 },
-  notes: { fontSize: 15, color: "#3c4043", lineHeight: 22, marginBottom: 16 },
-  source: { fontSize: 12, color: "#5f6368", marginTop: 24 },
+  stepText: { flex: 1, fontSize: 15, color: colors.fg, lineHeight: 22 },
+  notes: { fontSize: 15, color: colors.fg, lineHeight: 22, marginBottom: 16 },
+  source: { fontSize: 12, color: colors.mutedFg, marginTop: 24 },
 });

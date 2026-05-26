@@ -22,6 +22,7 @@ import {
 import { SafeAreaView } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 export interface IngredientDraft {
   raw_text: string;
@@ -231,7 +232,7 @@ export function RecipeEditor({
           style={[styles.saveBtn, (!canSave || saving) && styles.saveBtnDisabled]}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.card} />
           ) : (
             <Text style={styles.saveBtnText}>{saveLabel}</Text>
           )}
@@ -272,7 +273,7 @@ export function RecipeEditor({
                 disabled={uploadingImage}
               >
                 {uploadingImage ? (
-                  <ActivityIndicator size="small" color="#fff" />
+                  <ActivityIndicator size="small" color={colors.card} />
                 ) : (
                   <Text style={styles.imageBtnText}>
                     {imagePath ? "Replace photo" : "Choose photo"}
@@ -297,7 +298,7 @@ export function RecipeEditor({
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Sheet-pan honey-mustard salmon"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
           />
 
           <Text style={styles.label}>Short description</Text>
@@ -307,7 +308,7 @@ export function RecipeEditor({
             onChangeText={setDescription}
             multiline
             placeholder="Optional. One sentence about the dish."
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
           />
 
           <View style={styles.row2col}>
@@ -328,7 +329,7 @@ export function RecipeEditor({
                 onChangeText={setTotalMin}
                 keyboardType="number-pad"
                 placeholder="Optional"
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
               />
             </View>
           </View>
@@ -339,7 +340,7 @@ export function RecipeEditor({
             value={sourceUrl}
             onChangeText={setSourceUrl}
             placeholder="Optional"
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -354,7 +355,7 @@ export function RecipeEditor({
                 value={ing.raw_text}
                 onChangeText={(t) => updateIngredient(idx, { raw_text: t })}
                 placeholder='e.g. "1 cup flour" or "salt to taste"'
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
               />
               <Pressable
                 onPress={() => removeIngredientRow(idx)}
@@ -379,7 +380,7 @@ export function RecipeEditor({
                 onChangeText={(t) => updateStep(idx, { text: t })}
                 multiline
                 placeholder="Describe this step"
-                placeholderTextColor="#9aa0a6"
+                placeholderTextColor={colors.mutedFg}
               />
               <Pressable
                 onPress={() => removeStepRow(idx)}
@@ -401,7 +402,7 @@ export function RecipeEditor({
             onChangeText={setNotes}
             multiline
             placeholder='Personal notes. "Tastes better next day", "use full-fat", etc.'
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
           />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -449,64 +450,64 @@ const MIME_TO_EXT: Record<string, string> = {
 };
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
-    backgroundColor: "#f4ede0",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
   },
   back: { paddingHorizontal: 12, paddingVertical: 6 },
-  backText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   headerTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   saveBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
   },
   saveBtnDisabled: { opacity: 0.4 },
-  saveBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  saveBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
 
   scroll: { padding: 24, paddingBottom: 60 },
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#3c4043",
+    color: colors.fg,
     marginTop: 14,
     marginBottom: 6,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#202124",
+    color: colors.fg,
   },
   imageBlock: { marginBottom: 4 },
   imagePreview: {
     width: "100%",
     aspectRatio: 16 / 9,
     borderRadius: 12,
-    backgroundColor: "#e6dec9",
+    backgroundColor: colors.border,
   },
   imagePlaceholder: { alignItems: "center", justifyContent: "center" },
-  imagePlaceholderText: { color: "#9a8c6f", fontSize: 14 },
+  imagePlaceholderText: { color: colors.mutedFg, fontSize: 14 },
   imageBtnRow: { flexDirection: "row", marginTop: 8 },
   imageBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 8,
@@ -514,20 +515,20 @@ const styles = StyleSheet.create({
     minWidth: 130,
   },
   imageBtnDisabled: { opacity: 0.6 },
-  imageBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  imageBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
   imageRemoveBtn: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     marginLeft: 8,
   },
-  imageRemoveBtnText: { color: "#b3261e", fontSize: 14, fontWeight: "600" },
+  imageRemoveBtnText: { color: colors.destructive, fontSize: 14, fontWeight: "600" },
   multiline: { minHeight: 60, textAlignVertical: "top" },
   row2col: { flexDirection: "row" },
 
   sectionHeading: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     marginTop: 28,
     marginBottom: 8,
   },
@@ -539,7 +540,7 @@ const styles = StyleSheet.create({
   listIdx: {
     width: 22,
     fontSize: 14,
-    color: "#5f6368",
+    color: colors.mutedFg,
     fontWeight: "600",
     marginTop: 12,
   },
@@ -552,12 +553,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  removeRowText: { fontSize: 22, color: "#b3261e", fontWeight: "600" },
+  removeRowText: { fontSize: 22, color: colors.destructive, fontWeight: "600" },
   addRowBtn: {
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignSelf: "flex-start",
     marginTop: 4,
   },
-  addRowText: { color: "#2e6f70", fontSize: 14, fontWeight: "600" },
+  addRowText: { color: colors.primary, fontSize: 14, fontWeight: "600" },
 });

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 import {
   RecipeEditor,
   type RecipeDraft,
@@ -157,7 +158,7 @@ export function EditRecipeScreen({ recipeId, onBack, onSaved }: Props) {
     return (
       <SafeAreaView style={styles.root}>
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -175,7 +176,7 @@ export function EditRecipeScreen({ recipeId, onBack, onSaved }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 });

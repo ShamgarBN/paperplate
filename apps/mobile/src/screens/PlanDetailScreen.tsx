@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { RecipePickerModal } from "../components/RecipePickerModal";
+import { colors, fonts, radii } from "../theme/tokens";
 import {
   autoSelect,
   isPerishable,
@@ -424,7 +425,7 @@ export function PlanDetailScreen({
       <SafeAreaView style={styles.root}>
         <Header onBack={onBack} title="" />
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -483,7 +484,7 @@ export function PlanDetailScreen({
               ]}
             >
               {autoFilling ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.card} size="small" />
               ) : (
                 <Text style={styles.autoFillBtnText}>✨  Auto-fill</Text>
               )}
@@ -508,7 +509,7 @@ export function PlanDetailScreen({
                   }
                   onBlur={() => saveDayNote(date, draft)}
                   placeholder="Add notes for this day..."
-                  placeholderTextColor="#bdb094"
+                  placeholderTextColor={colors.mutedFg}
                   multiline
                 />
 
@@ -623,9 +624,9 @@ function fmtDayName(iso: string): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 
   header: {
     flexDirection: "row",
@@ -633,34 +634,34 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
-    backgroundColor: "#f4ede0",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
   },
   back: { paddingHorizontal: 12, paddingVertical: 6 },
-  backText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   headerTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   headerSpacer: { width: 80 },
 
   scroll: { padding: 16, paddingBottom: 60 },
-  title: { fontSize: 28, fontWeight: "700", color: "#202124", marginBottom: 4 },
-  range: { fontSize: 14, color: "#5f6368", marginBottom: 14 },
+  title: { fontSize: 28, fontWeight: "700", color: colors.fg, marginBottom: 4 },
+  range: { fontSize: 14, color: colors.mutedFg, marginBottom: 14 },
   planActionsRow: { flexDirection: "row", marginBottom: 20 },
   shoppingListBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
     marginRight: 8,
   },
-  shoppingListBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  shoppingListBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
   autoFillBtn: {
-    backgroundColor: "#5f8b8b",
+    backgroundColor: colors.secondary,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -668,10 +669,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   autoFillBtnDisabled: { opacity: 0.6 },
-  autoFillBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  autoFillBtnText: { color: colors.card, fontSize: 14, fontWeight: "600" },
 
   day: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderRadius: 14,
     padding: 16,
     marginBottom: 12,
@@ -684,14 +685,14 @@ const styles = StyleSheet.create({
   dayName: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#2e6f70",
+    color: colors.primary,
     flex: 1,
   },
-  dayDate: { fontSize: 13, color: "#5f6368" },
+  dayDate: { fontSize: 13, color: colors.mutedFg },
   dayNoteInput: {
     fontSize: 13,
-    color: "#5f4a1a",
-    backgroundColor: "#fdf6e0",
+    color: colors.fg,
+    backgroundColor: colors.accent,
     padding: 10,
     borderRadius: 8,
     marginBottom: 12,
@@ -708,44 +709,44 @@ const styles = StyleSheet.create({
   slotLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#5f6368",
+    color: colors.mutedFg,
     letterSpacing: 1,
     flex: 1,
   },
   lockBtn: { paddingHorizontal: 6, paddingVertical: 2 },
-  lockBtnText: { fontSize: 11, color: "#5f6368", fontWeight: "600" },
+  lockBtnText: { fontSize: 11, color: colors.mutedFg, fontWeight: "600" },
   recipeRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: "#f4ede0",
+    backgroundColor: colors.bg,
     borderRadius: 8,
     marginBottom: 4,
   },
   recipeRowMain: { flex: 1 },
-  recipeTitle: { fontSize: 15, color: "#202124", fontWeight: "500" },
-  recipeMeta: { fontSize: 12, color: "#5f6368", marginTop: 2 },
+  recipeTitle: { fontSize: 15, color: colors.fg, fontWeight: "500" },
+  recipeMeta: { fontSize: 12, color: colors.mutedFg, marginTop: 2 },
   removeBtn: {
     width: 28,
     height: 28,
     alignItems: "center",
     justifyContent: "center",
   },
-  removeBtnText: { fontSize: 16, color: "#b3261e", fontWeight: "700" },
+  removeBtnText: { fontSize: 16, color: colors.destructive, fontWeight: "700" },
   addRecipeBtn: {
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderStyle: "dashed",
     backgroundColor: "transparent",
     alignSelf: "flex-start",
     marginTop: 4,
   },
   addRecipeBtnText: {
-    color: "#2e6f70",
+    color: colors.primary,
     fontSize: 13,
     fontWeight: "600",
   },

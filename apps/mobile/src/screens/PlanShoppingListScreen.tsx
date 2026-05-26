@@ -24,6 +24,7 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { printHtml, shoppingListPrintHtml } from "../lib/print";
+import { colors, fonts, radii } from "../theme/tokens";
 import {
   buildShoppingList,
   type MealPlanSlot,
@@ -347,7 +348,7 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
       <SafeAreaView style={styles.root}>
         <Header onBack={onBack} title={planName} />
         <View style={styles.centered}>
-          <ActivityIndicator color="#2e6f70" size="large" />
+          <ActivityIndicator color={colors.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -382,7 +383,7 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#2e6f70"
+            tintColor={colors.primary}
           />
         }
       >
@@ -402,7 +403,7 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
               disabled={sending}
             >
               {sending ? (
-                <ActivityIndicator color="#fff" size="small" />
+                <ActivityIndicator color={colors.card} size="small" />
               ) : (
                 <Text style={styles.sendBtnText}>
                   Send these recipes to my main list
@@ -483,9 +484,9 @@ function formatNumber(n: number): string {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24 },
 
   header: {
     flexDirection: "row",
@@ -493,16 +494,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
-    backgroundColor: "#f4ede0",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
   },
   back: { paddingHorizontal: 12, paddingVertical: 6 },
-  backText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   headerTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   headerSpacer: { width: 70 },
@@ -513,41 +514,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
-  subTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  subMeta: { color: "#5f6368", fontSize: 14, marginRight: 12 },
+  subTitle: { fontSize: 28, fontWeight: "700", color: colors.primary, flex: 1 },
+  subMeta: { color: colors.mutedFg, fontSize: 14, marginRight: 12 },
   printBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#2e6f70",
+    borderColor: colors.primary,
   },
-  printBtnText: { color: "#2e6f70", fontSize: 13, fontWeight: "600" },
+  printBtnText: { color: colors.primary, fontSize: 13, fontWeight: "600" },
 
   scroll: { padding: 16, paddingBottom: 60 },
 
   sendBtn: {
-    backgroundColor: "#5f8b8b",
+    backgroundColor: colors.secondary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
     marginBottom: 20,
   },
   sendBtnDisabled: { opacity: 0.5 },
-  sendBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  sendBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
 
   emptyBox: { padding: 32, alignItems: "center" },
   emptyTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#3c4043",
+    color: colors.fg,
     marginBottom: 6,
   },
   emptyBody: {
     fontSize: 14,
-    color: "#5f6368",
+    color: colors.mutedFg,
     textAlign: "center",
     maxWidth: 320,
   },
@@ -556,7 +557,7 @@ const styles = StyleSheet.create({
   groupHeader: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#5f6368",
+    color: colors.mutedFg,
     letterSpacing: 1,
     marginBottom: 8,
     paddingHorizontal: 4,
@@ -564,7 +565,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 14,
     borderRadius: 12,
     marginBottom: 6,
@@ -574,22 +575,22 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: "#c4c4c4",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
     marginTop: 1,
   },
-  checkboxChecked: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  tick: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  tick: { color: colors.card, fontSize: 16, fontWeight: "700" },
   rowBody: { flex: 1 },
-  itemName: { fontSize: 15, color: "#202124", fontWeight: "500" },
+  itemName: { fontSize: 15, color: colors.fg, fontWeight: "500" },
   itemNameChecked: {
-    color: "#9aa0a6",
+    color: colors.mutedFg,
     textDecorationLine: "line-through",
   },
-  itemQty: { fontSize: 13, color: "#5f6368", marginTop: 2 },
-  itemQtyChecked: { color: "#bdc1c6" },
-  contributors: { fontSize: 11, color: "#9aa0a6", marginTop: 4 },
-  optional: { color: "#9aa0a6", fontStyle: "italic", fontSize: 13 },
+  itemQty: { fontSize: 13, color: colors.mutedFg, marginTop: 2 },
+  itemQtyChecked: { color: colors.mutedFg },
+  contributors: { fontSize: 11, color: colors.mutedFg, marginTop: 4 },
+  optional: { color: colors.mutedFg, fontStyle: "italic", fontSize: 13 },
 });

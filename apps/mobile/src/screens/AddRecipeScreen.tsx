@@ -20,6 +20,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 import {
   RecipeEditor,
   type RecipeDraft,
@@ -191,7 +192,7 @@ export function AddRecipeScreen({ onBack, onCreated }: Props) {
             value={url}
             onChangeText={setUrl}
             placeholder="https://..."
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="url"
@@ -207,7 +208,7 @@ export function AddRecipeScreen({ onBack, onCreated }: Props) {
             disabled={!url.trim() || mode === "fetching"}
           >
             {mode === "fetching" ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.card} />
             ) : (
               <Text style={styles.fetchBtnText}>Fetch recipe</Text>
             )}
@@ -231,72 +232,72 @@ export function AddRecipeScreen({ onBack, onCreated }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
   back: { paddingHorizontal: 12, paddingVertical: 6 },
-  backText: { color: "#2e6f70", fontSize: 16, fontWeight: "600" },
+  backText: { color: colors.primary, fontSize: 16, fontWeight: "600" },
   headerTitle: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
-    color: "#2e6f70",
+    color: colors.primary,
     textAlign: "center",
   },
   headerSpacer: { width: 80 },
 
   body: { padding: 24 },
-  h1: { fontSize: 22, fontWeight: "700", color: "#2e6f70", marginTop: 12 },
+  h1: { fontSize: 22, fontWeight: "700", color: colors.primary, marginTop: 12 },
   p: {
     fontSize: 14,
-    color: "#5f6368",
+    color: colors.mutedFg,
     lineHeight: 20,
     marginTop: 4,
     marginBottom: 14,
   },
   input: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: "#202124",
+    color: colors.fg,
     marginBottom: 12,
   },
   fetchBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
   },
   fetchBtnDisabled: { opacity: 0.4 },
-  fetchBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+  fetchBtnText: { color: colors.card, fontWeight: "600", fontSize: 14 },
   errorText: {
-    color: "#b3261e",
+    color: colors.destructive,
     fontSize: 13,
     marginTop: 10,
     lineHeight: 18,
   },
   divider: {
     height: 1,
-    backgroundColor: "#e6dec9",
+    backgroundColor: colors.border,
     marginVertical: 28,
   },
   manualBtn: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#2e6f70",
+    borderColor: colors.primary,
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: "center",
   },
-  manualBtnText: { color: "#2e6f70", fontWeight: "600", fontSize: 14 },
+  manualBtnText: { color: colors.primary, fontWeight: "600", fontSize: 14 },
 });

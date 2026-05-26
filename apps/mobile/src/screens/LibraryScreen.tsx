@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 interface Recipe {
   id: number;
@@ -209,7 +210,7 @@ export function LibraryScreen({ onSelect, onAdd }: Props) {
             value={query}
             onChangeText={setQuery}
             placeholder="Search recipes..."
-            placeholderTextColor="#9aa0a6"
+            placeholderTextColor={colors.mutedFg}
             autoCorrect={false}
             autoCapitalize="none"
             clearButtonMode="while-editing"
@@ -328,48 +329,60 @@ export function LibraryScreen({ onSelect, onAdd }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#f4ede0" },
+  root: { flex: 1, backgroundColor: colors.bg },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  errorText: { color: "#b3261e", fontSize: 16, padding: 24 },
+  errorText: { color: colors.destructive, fontSize: 16, padding: 24, fontFamily: fonts.sans },
   header: {
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e6dec9",
+    borderBottomColor: colors.border,
   },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
   },
-  headerTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  headerCount: { color: "#5f6368", fontSize: 12, marginTop: 8 },
+  headerTitle: {
+    fontSize: 32,
+    fontFamily: fonts.displayBold,
+    color: colors.fg,
+    flex: 1,
+    letterSpacing: -0.3,
+  },
+  headerCount: {
+    color: colors.mutedFg,
+    fontSize: 12,
+    marginTop: 8,
+    fontFamily: fonts.sans,
+  },
 
   searchRow: { flexDirection: "row", alignItems: "center" },
   searchInput: {
     flex: 1,
-    backgroundColor: "#fff",
-    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 15,
-    color: "#202124",
+    color: colors.fg,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     marginRight: 8,
+    fontFamily: fonts.sans,
   },
   filterToggle: {
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
+    borderColor: colors.border,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 10,
+    borderRadius: radii.md,
   },
-  filterToggleActive: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  filterToggleText: { color: "#3c4043", fontSize: 14, fontWeight: "600" },
-  filterToggleTextActive: { color: "#fff" },
+  filterToggleActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterToggleText: { color: colors.fg, fontSize: 14, fontFamily: fonts.sansSemibold },
+  filterToggleTextActive: { color: colors.primaryFg },
 
   filtersPanel: {
     marginTop: 12,
@@ -378,8 +391,8 @@ const styles = StyleSheet.create({
   filterKind: { marginBottom: 8 },
   filterKindLabel: {
     fontSize: 12,
-    color: "#5f6368",
-    fontWeight: "700",
+    color: colors.mutedFg,
+    fontFamily: fonts.sansBold,
     letterSpacing: 0.5,
     marginBottom: 4,
   },
@@ -387,55 +400,71 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: "#dcdcdc",
-    backgroundColor: "#fff",
+    borderColor: colors.border,
+    backgroundColor: colors.card,
     marginRight: 6,
   },
-  filterChipActive: { backgroundColor: "#2e6f70", borderColor: "#2e6f70" },
-  filterChipText: { fontSize: 12, color: "#3c4043", fontWeight: "500" },
-  filterChipTextActive: { color: "#fff" },
+  filterChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterChipText: { fontSize: 12, color: colors.fg, fontFamily: fonts.sansMedium },
+  filterChipTextActive: { color: colors.primaryFg },
   clearBtn: {
     alignSelf: "flex-start",
     paddingVertical: 6,
     paddingHorizontal: 4,
     marginTop: 4,
   },
-  clearBtnText: { color: "#b3261e", fontSize: 13, fontWeight: "600" },
+  clearBtnText: { color: colors.destructive, fontSize: 13, fontFamily: fonts.sansSemibold },
 
   signOut: { paddingHorizontal: 12, paddingVertical: 6 },
-  signOutText: { color: "#2e6f70", fontSize: 14, fontWeight: "600" },
+  signOutText: { color: colors.primary, fontSize: 14, fontFamily: fonts.sansSemibold },
   addBtn: {
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     marginRight: 8,
   },
-  addBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  addBtnText: { color: colors.primaryFg, fontSize: 14, fontFamily: fonts.sansSemibold },
   list: { padding: 16 },
   sep: { height: 12 },
   emptyBox: { padding: 24, alignItems: "center" },
-  emptyText: { color: "#5f6368", fontSize: 14 },
+  emptyText: { color: colors.mutedFg, fontSize: 14, fontFamily: fonts.sans },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    backgroundColor: colors.card,
+    borderRadius: radii.lg,
     shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
     overflow: "hidden",
   },
   cardImage: {
     width: "100%",
     height: 180,
-    backgroundColor: "#e6dec9",
+    backgroundColor: colors.muted,
   },
   cardBody: { padding: 18 },
-  cardTitle: { fontSize: 18, fontWeight: "600", color: "#202124" },
-  cardMeta: { marginTop: 4, color: "#5f6368", fontSize: 13 },
-  cardDesc: { marginTop: 8, color: "#3c4043", fontSize: 14, lineHeight: 20 },
+  cardTitle: {
+    fontSize: 20,
+    fontFamily: fonts.displayBold,
+    color: colors.fg,
+    letterSpacing: -0.2,
+  },
+  cardMeta: {
+    marginTop: 4,
+    color: colors.mutedFg,
+    fontSize: 13,
+    fontFamily: fonts.sans,
+  },
+  cardDesc: {
+    marginTop: 8,
+    color: colors.fg,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: fonts.sans,
+  },
 });
 
 function isHttpUrl(value: string | null | undefined): boolean {

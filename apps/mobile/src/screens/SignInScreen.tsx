@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { supabase } from "../lib/supabase";
+import { colors, fonts, radii } from "../theme/tokens";
 
 export function SignInScreen() {
   const [email, setEmail] = useState("");
@@ -50,7 +51,7 @@ export function SignInScreen() {
           autoComplete="email"
           keyboardType="email-address"
           placeholder="you@example.com"
-          placeholderTextColor="#9aa0a6"
+          placeholderTextColor={colors.mutedFg}
         />
 
         <Text style={styles.label}>Password</Text>
@@ -70,7 +71,7 @@ export function SignInScreen() {
           disabled={!canSubmit}
         >
           {submitting ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.primaryFg} />
           ) : (
             <Text style={styles.buttonText}>Sign in</Text>
           )}
@@ -83,7 +84,7 @@ export function SignInScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#f4ede0",
+    backgroundColor: colors.bg,
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
@@ -91,55 +92,56 @@ const styles = StyleSheet.create({
   card: {
     width: "100%",
     maxWidth: 420,
-    backgroundColor: "#fff",
+    backgroundColor: colors.card,
     padding: 28,
-    borderRadius: 16,
+    borderRadius: radii.xl,
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
   },
   title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#2e6f70",
+    fontSize: 36,
+    fontFamily: fonts.displayBold,
+    color: colors.fg,
     marginBottom: 4,
+    letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 14,
-    color: "#5f6368",
+    fontFamily: fonts.sans,
+    color: colors.mutedFg,
     marginBottom: 24,
   },
   label: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#3c4043",
+    fontFamily: fonts.sansSemibold,
+    color: colors.fg,
     marginBottom: 6,
     marginTop: 12,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#dcdcdc",
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#202124",
-    backgroundColor: "#fafafa",
+    fontFamily: fonts.sans,
+    color: colors.fg,
+    backgroundColor: colors.bg,
   },
   button: {
     marginTop: 24,
-    backgroundColor: "#2e6f70",
+    backgroundColor: colors.primary,
     paddingVertical: 14,
-    borderRadius: 10,
+    borderRadius: radii.md,
     alignItems: "center",
   },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
+  buttonDisabled: { opacity: 0.5 },
   buttonText: {
-    color: "#fff",
-    fontWeight: "600",
+    color: colors.primaryFg,
+    fontFamily: fonts.sansSemibold,
     fontSize: 16,
   },
 });
