@@ -17,7 +17,7 @@
  * `saveLocalImage` returned so existing callers don't need restructuring;
  * the value is now a fully-qualified https URL instead of a local file.
  */
-import { readFile } from "@tauri-apps/plugin-fs";
+import { isTauri } from "@/lib/runtime";
 import { supabase } from "@/lib/supabase";
 
 export interface UploadResult {
@@ -63,6 +63,12 @@ export async function uploadFile(file: File): Promise<UploadResult> {
 }
 
 export async function uploadFromPath(path: string): Promise<UploadResult> {
+  if (!isTauri()) {
+    // OS-level drag-drop only flows through Tauri; in the browser the
+    // HTML5 drag-drop handler delivers a File object and uses uploadFile.
+    throw new Error("uploadFromPath is only available inside the Tauri shell.");
+  }
+  const { readFile } = await import("@tauri-apps/plugin-fs");
   // tauri-plugin-fs reads the file off disk in Rust and hands us the bytes.
   const bytes = await readFile(path);
   if (bytes.byteLength > MAX_BYTES) {

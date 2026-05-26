@@ -1,12 +1,16 @@
 name: Deploy iPad PWA to GitHub Pages
 
-# Build and publish the Expo web export from apps/mobile/ on every push to
-# the active dev branch. Pages serves the result at
-# https://shamgarbn.github.io/paperplate/
+# Build and publish the desktop app's web bundle as the iPad PWA. The
+# same Vite/React codebase ships two ways:
+#   - Tauri shell on macOS (npm run tauri:build → .dmg in Releases)
+#   - PWA on GitHub Pages (this workflow), served at
+#     https://shamgarbn.github.io/paperplate/
+# `BUILD_TARGET=pwa` swaps Vite's `base` to `/paperplate/` so asset URLs
+# resolve correctly under that path.
 
 on:
   push:
-    branches: [supabase-rebuild, main]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,12 +37,12 @@ jobs:
         run: npm ci
 
       - name: Build PWA
-        run: npm -w @paperplate/mobile run build:web
+        run: npm -w @paperplate/desktop run build:pwa
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: apps/mobile/dist
+          path: apps/desktop/dist
 
   deploy:
     needs: build

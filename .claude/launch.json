@@ -6,12 +6,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["-w", "@paperplate/desktop", "run", "dev"],
       "port": 1420
-    },
-    {
-      "name": "expo-web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["-w", "@paperplate/mobile", "run", "web"],
-      "port": 8081
     }
   ]
 }

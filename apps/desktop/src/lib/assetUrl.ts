@@ -1,19 +1,19 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
-import { appLocalDataDir, join } from "@tauri-apps/api/path";
+import { isTauri } from "@/lib/runtime";
 
 let appLocalDir: string | null = null;
 
 /**
  * Resolve a recipe's `image_path` value to a URL the WebView can render.
  *
- * Two flavours are supported now that data lives in Supabase:
- *   1. `http(s)://...` — Storage-hosted images (the new normal after the
- *      hero-image backfill). Returned verbatim.
- *   2. Legacy relative paths like `images/<hash>.<ext>` — pre-Supabase
- *      local files in the Tauri app-data directory. Resolved via the
- *      `convertFileSrc` asset protocol. Will resolve to a broken URL on
- *      this machine after the swap, but kept for backwards compatibility
- *      with any rows we haven't backfilled yet.
+ * After the Supabase migration every newly-stored image is a full
+ * `https://…supabase.co/storage/v1/object/public/recipe-images/…` URL,
+ * which we just hand back verbatim.
+ *
+ * The pre-Supabase 1.x rows stored relative paths like
+ * `images/<hash>.<ext>` pointing at the Tauri app-data dir. We resolve
+ * those via `convertFileSrc` inside Tauri; on the web there's no local
+ * filesystem to read from, so we return null and the caller falls back
+ * to its placeholder treatment.
  */
 export async function localImageUrl(
   relativePath: string | null,
@@ -25,6 +25,15 @@ export async function localImageUrl(
   ) {
     return relativePath;
   }
+  if (!isTauri()) {
+    // Legacy local-disk path with no Tauri runtime to read it. Nothing
+    // we can do from a browser.
+    return null;
+  }
+  const [{ convertFileSrc }, { appLocalDataDir, join }] = await Promise.all([
+    import("@tauri-apps/api/core"),
+    import("@tauri-apps/api/path"),
+  ]);
   if (!appLocalDir) {
     try {
       appLocalDir = await appLocalDataDir();

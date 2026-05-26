@@ -1,14 +1,19 @@
 # Paperplate
 
-A two-device recipe book and meal planner: a Tauri-shelled Mac Silicon
-desktop app and an installable iPad PWA, both backed by the same Supabase
-project. Designed for a household — two signed-in users share one library,
-one set of meal plans, one running shopping list. No accounts to share with
-strangers, no cross-account RLS gymnastics.
+A two-device recipe book and meal planner. One React/Vite codebase ships
+two ways:
+- a Tauri-shelled Mac Silicon desktop app
+- an installable iPad PWA served from GitHub Pages
 
-> Status: 2.0.0 — first release with the Supabase backend + iPad PWA.
-> 1.x was a local-first SQLite app; the migration to Supabase happened in
-> May 2026 and is preserved in the git history if you want to compare.
+Both load the same UI, backed by the same Supabase project. Designed for
+a household — two signed-in users share one library, one set of meal
+plans, one running shopping list. No accounts to share with strangers,
+no cross-account RLS gymnastics.
+
+> Status: desktop + iPad now share a single source tree. The previous
+> Expo/React Native iPad app was retired so the two surfaces can't
+> drift. The Supabase migration from local SQLite landed in 2.0.0 (May
+> 2026) and is preserved in the git history if you want to compare.
 
 ---
 
@@ -130,12 +135,15 @@ household account sees the household library.
 ```
 paperplate/
 ├── apps/
-│   ├── desktop/          # Tauri 2 + Vite + React. Mac Silicon target.
-│   │   ├── src/          # Frontend (TanStack Router, React Query, Zustand)
-│   │   └── src-tauri/    # Rust shell. Two surviving commands:
-│   │                     #   fetch_recipe_html, print_current_window
-│   └── mobile/           # Expo SDK 56 + React Native. PWA-targeted; can
-│                         # also build native iOS later via EAS.
+│   └── desktop/          # Vite + React. One codebase, two targets:
+│       ├── src/          # Frontend (TanStack Router, React Query,
+│       │                 # Zustand, Tailwind, Radix). Identical UX
+│       │                 # whether served by Tauri (macOS) or as a
+│       │                 # PWA on GitHub Pages (iPad/browser).
+│       └── src-tauri/    # Rust shell, macOS only. Two commands:
+│                         #   fetch_recipe_html, print_current_window
+│                         # The PWA build routes around both via the
+│                         # scrape-recipe edge function + window.print().
 ├── packages/
 │   └── core/             # Shared TS: types (schema), planner heuristic
 │                         # (autoSelect), shopping aggregator
@@ -149,9 +157,12 @@ paperplate/
     ├── config.toml
     ├── migrations/       # Postgres schema + RLS + storage bucket setup.
     └── functions/
-        └── scrape-recipe/    # Deno edge function. JSON-LD recipe
-                              # extraction so neither app has to fight
-                              # CORS.
+        └── scrape-recipe/    # Deno edge function. Fetches recipe URLs
+                              # server-side and returns HTML + a
+                              # best-effort JSON-LD parse. Used by the
+                              # PWA build to side-step browser CORS;
+                              # the Tauri build prefers its native
+                              # Rust fetch.
 ```
 
 ## Developing
@@ -159,20 +170,17 @@ paperplate/
 ```bash
 npm install                            # at the repo root; resolves all workspaces
 
-# Desktop
-npm run dev                            # Vite only (browser; data layer works)
+# Desktop / PWA (same React/Vite codebase)
+npm run dev                            # Vite dev server (browser-mode iteration)
 npm run tauri:dev                      # full Tauri shell with hot reload
 npm run tauri:build                    # produces a signed .app and .dmg
                                        # → apps/desktop/src-tauri/target/release/bundle/
-
-# Mobile (Expo)
-npm -w @paperplate/mobile run start    # interactive Expo CLI; Expo Go QR
-npm -w @paperplate/mobile run web      # dev server in browser
-npm -w @paperplate/mobile run build:web  # static PWA bundle → apps/mobile/dist/
+npm -w @paperplate/desktop run build:pwa  # static PWA bundle → apps/desktop/dist/
+                                          # (base=/paperplate/, ready for GitHub Pages)
 
 # Quality gates
-npm run typecheck                      # both apps + core
-npm run test                           # 78 vitest specs in apps/desktop
+npm run typecheck                      # desktop + core
+npm run test                           # vitest specs in apps/desktop
 ```
 
 ### Supabase
@@ -197,15 +205,16 @@ once.
 
 Secrets (project URL, anon key, service-role key) live in a gitignored
 root `.env` — see the comments in that file for what each key is for.
-The publishable / anon key is also hardcoded in the desktop and mobile
-clients, which is fine because RLS keeps it harmless.
+The publishable / anon key is also hardcoded in the desktop client (the
+same bundle the PWA ships), which is fine because RLS keeps it
+harmless.
 
 ---
 
 ## Versioning
 
-Semver. Both apps + Cargo.toml + tauri.conf.json share the same version
-number — they ship as a single release.
+Semver. The package.json + Cargo.toml + tauri.conf.json share the same
+version number — desktop and PWA ship as a single release.
 
 - patch (`2.0.x`): bug fixes only
 - minor (`2.x.0`): new features, backwards-compatible
@@ -217,8 +226,6 @@ When cutting a release:
    - `apps/desktop/package.json`
    - `apps/desktop/src-tauri/Cargo.toml`
    - `apps/desktop/src-tauri/tauri.conf.json`
-   - `apps/mobile/package.json`
-   - `apps/mobile/app.json` (expo.version)
 2. Run `npm run tauri:build` to produce the `.dmg`.
 3. Push, then `git tag v<version> && git push origin v<version>`.
 4. Create a GitHub Release with the `.dmg` attached and release notes

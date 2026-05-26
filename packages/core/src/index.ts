@@ -1,5 +1,6 @@
 // Shared core: types, planner heuristic, ingredient parsing/canonicalization,
-// shopping aggregation. Consumed by both apps/desktop and apps/mobile.
+// shopping aggregation. Consumed by apps/desktop, which ships both the
+// macOS Tauri shell and the iPad PWA from the same React/Vite bundle.
 
 // ---------- Types (originally apps/desktop/src/lib/db/schema.ts) ----------
 export type {

@@ -1,27 +1,28 @@
-import { invoke } from "@tauri-apps/api/core";
+import { isTauri } from "@/lib/runtime";
 
 /**
- * Trigger the platform print dialog for the current Tauri window.
+ * Trigger the platform print dialog for the current window.
  *
- * Rationale: in a stock WKWebView (which Tauri uses on macOS) the plain
- * `window.print()` is a no-op — the call returns silently without surfacing
- * the system print panel. Routing the print request through a Rust command
- * that calls into the WebKit `printOperation` API actually opens the panel.
+ * Inside Tauri: the stock WKWebView treats `window.print()` as a no-op,
+ * so we route through a Rust command that drives WebKit's
+ * `printOperation` API to actually surface the system print panel.
  *
- * We still fall back to `window.print()` when the invoke fails (e.g. running
- * outside Tauri during `vite dev`) so the same button works in the browser
- * preview without bespoke handling.
+ * On the web (iPad PWA, browser preview, Safari "Print" from the share
+ * sheet): plain `window.print()` does the right thing — Safari prints the
+ * current document.
  */
 export async function printCurrentWindow(): Promise<void> {
-  try {
-    await invoke("print_current_window");
-  } catch (err) {
-    // Browser preview path (no Tauri runtime) — also useful as a safety net
-    // if the Rust command isn't registered on an older build.
-    if (typeof window !== "undefined" && typeof window.print === "function") {
-      window.print();
+  if (isTauri()) {
+    const { invoke } = await import("@tauri-apps/api/core");
+    try {
+      await invoke("print_current_window");
       return;
+    } catch {
+      // Fall through to window.print() if the Rust command isn't
+      // registered on an older bundle.
     }
-    throw err;
+  }
+  if (typeof window !== "undefined" && typeof window.print === "function") {
+    window.print();
   }
 }

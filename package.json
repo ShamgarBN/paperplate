@@ -2,7 +2,7 @@
   "name": "paperplate-workspace",
   "private": true,
   "version": "0.0.0",
-  "description": "Paperplate monorepo: Mac Silicon desktop + iPad mobile, Supabase backend.",
+  "description": "Paperplate monorepo: Mac Silicon Tauri shell + iPad PWA from a single React/Vite bundle, Supabase backend.",
   "workspaces": [
     "apps/*",
     "packages/*",

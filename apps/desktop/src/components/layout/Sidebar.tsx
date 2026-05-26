@@ -78,7 +78,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="mt-auto px-5 pb-4 text-[11px] text-muted-foreground">
-        v0.1.0 &middot; local-only
+        v2.1.0
       </div>
     </aside>
   );
