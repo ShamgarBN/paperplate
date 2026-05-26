@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-export type Tab = "library" | "plans" | "shopping";
+export type Tab = "library" | "plans" | "shopping" | "settings";
 
 interface Props {
   active: Tab;
@@ -27,6 +27,12 @@ export function TabBar({ active, onChange }: Props) {
         icon="🛒"
         isActive={active === "shopping"}
         onPress={() => onChange("shopping")}
+      />
+      <TabButton
+        label="Settings"
+        icon="⚙️"
+        isActive={active === "settings"}
+        onPress={() => onChange("settings")}
       />
     </View>
   );

@@ -9,6 +9,8 @@ import { RecipeDetailScreen } from "./src/screens/RecipeDetailScreen";
 import { ShoppingListScreen } from "./src/screens/ShoppingListScreen";
 import { PlansScreen } from "./src/screens/PlansScreen";
 import { PlanDetailScreen } from "./src/screens/PlanDetailScreen";
+import { PlanShoppingListScreen } from "./src/screens/PlanShoppingListScreen";
+import { SettingsScreen } from "./src/screens/SettingsScreen";
 import { AddRecipeScreen } from "./src/screens/AddRecipeScreen";
 import { EditRecipeScreen } from "./src/screens/EditRecipeScreen";
 import { TabBar, type Tab } from "./src/components/TabBar";
@@ -19,6 +21,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("library");
   const [selectedRecipeId, setSelectedRecipeId] = useState<number | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<number | null>(null);
+  const [viewingPlanShopping, setViewingPlanShopping] = useState(false);
   const [isAddingRecipe, setIsAddingRecipe] = useState(false);
   const [editingRecipeId, setEditingRecipeId] = useState<number | null>(null);
   // Bumping these causes the relevant screens to refetch.
@@ -35,6 +38,7 @@ export default function App() {
       if (!s) {
         setSelectedRecipeId(null);
         setSelectedPlanId(null);
+        setViewingPlanShopping(false);
         setIsAddingRecipe(false);
         setEditingRecipeId(null);
         setTab("library");
@@ -67,6 +71,7 @@ export default function App() {
     setTab(next);
     setSelectedRecipeId(null);
     setSelectedPlanId(null);
+    setViewingPlanShopping(false);
     setIsAddingRecipe(false);
     setEditingRecipeId(null);
   }
@@ -124,19 +129,29 @@ export default function App() {
           onEdit={(id) => setEditingRecipeId(id)}
         />
       );
+    } else if (selectedPlanId != null && viewingPlanShopping) {
+      body = (
+        <PlanShoppingListScreen
+          planId={selectedPlanId}
+          onBack={() => setViewingPlanShopping(false)}
+        />
+      );
     } else if (selectedPlanId != null) {
       body = (
         <PlanDetailScreen
           planId={selectedPlanId}
           onBack={() => setSelectedPlanId(null)}
           onOpenRecipe={setSelectedRecipeId}
+          onOpenShopping={() => setViewingPlanShopping(true)}
         />
       );
     } else {
       body = <PlansScreen onSelect={setSelectedPlanId} />;
     }
-  } else {
+  } else if (tab === "shopping") {
     body = <ShoppingListScreen />;
+  } else {
+    body = <SettingsScreen />;
   }
 
   return (

@@ -43,6 +43,7 @@ interface Props {
   planId: number;
   onBack: () => void;
   onOpenRecipe: (recipeId: number) => void;
+  onOpenShopping: () => void;
 }
 
 const SLOT_ORDER: Record<string, number> = {
@@ -51,7 +52,12 @@ const SLOT_ORDER: Record<string, number> = {
   dinner: 3,
 };
 
-export function PlanDetailScreen({ planId, onBack, onOpenRecipe }: Props) {
+export function PlanDetailScreen({
+  planId,
+  onBack,
+  onOpenRecipe,
+  onOpenShopping,
+}: Props) {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [slots, setSlots] = useState<Slot[] | null>(null);
   const [slotRecipes, setSlotRecipes] = useState<SlotRecipe[] | null>(null);
@@ -197,6 +203,29 @@ export function PlanDetailScreen({ planId, onBack, onOpenRecipe }: Props) {
     await load();
   }
 
+  async function toggleSlotLock(slot: Slot) {
+    const next = !slot.is_locked;
+    // Optimistic update.
+    setSlots((prev) =>
+      (prev ?? []).map((s) =>
+        s.id === slot.id ? { ...s, is_locked: next } : s,
+      ),
+    );
+    const { error } = await supabase
+      .from("meal_plan_slots")
+      .update({ is_locked: next })
+      .eq("id", slot.id);
+    if (error) {
+      // Roll back.
+      setSlots((prev) =>
+        (prev ?? []).map((s) =>
+          s.id === slot.id ? { ...s, is_locked: !next } : s,
+        ),
+      );
+      Alert.alert("Could not update lock", error.message);
+    }
+  }
+
   function confirmRemoveAttachment(attachmentId: number, title: string) {
     Alert.alert(
       "Remove from slot?",
@@ -279,6 +308,14 @@ export function PlanDetailScreen({ planId, onBack, onOpenRecipe }: Props) {
           <Text style={styles.range}>
             {fmtLongDate(plan.start_date)} – {fmtLongDate(plan.end_date)}
           </Text>
+          <Pressable
+            onPress={onOpenShopping}
+            style={styles.shoppingListBtn}
+          >
+            <Text style={styles.shoppingListBtnText}>
+              🛒  Shopping list for this plan
+            </Text>
+          </Pressable>
 
           {dates.map((date) => {
             const daySlots = slotsByDate.get(date) ?? [];
@@ -306,10 +343,20 @@ export function PlanDetailScreen({ planId, onBack, onOpenRecipe }: Props) {
                   const recipes = recipesBySlot.get(slot.id) ?? [];
                   return (
                     <View key={slot.id} style={styles.slot}>
-                      <Text style={styles.slotLabel}>
-                        {slot.slot.toUpperCase()}
-                        {slot.is_locked ? "  🔒" : ""}
-                      </Text>
+                      <View style={styles.slotHeader}>
+                        <Text style={styles.slotLabel}>
+                          {slot.slot.toUpperCase()}
+                        </Text>
+                        <Pressable
+                          onPress={() => toggleSlotLock(slot)}
+                          hitSlop={8}
+                          style={styles.lockBtn}
+                        >
+                          <Text style={styles.lockBtnText}>
+                            {slot.is_locked ? "🔒 Locked" : "🔓 Unlocked"}
+                          </Text>
+                        </Pressable>
+                      </View>
                       {recipes.map((r) => (
                         <View key={r.id} style={styles.recipeRow}>
                           <Pressable
@@ -429,7 +476,16 @@ const styles = StyleSheet.create({
 
   scroll: { padding: 16, paddingBottom: 60 },
   title: { fontSize: 28, fontWeight: "700", color: "#202124", marginBottom: 4 },
-  range: { fontSize: 14, color: "#5f6368", marginBottom: 20 },
+  range: { fontSize: 14, color: "#5f6368", marginBottom: 14 },
+  shoppingListBtn: {
+    backgroundColor: "#2e6f70",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignSelf: "flex-start",
+    marginBottom: 20,
+  },
+  shoppingListBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 
   day: {
     backgroundColor: "#fff",
@@ -461,13 +517,20 @@ const styles = StyleSheet.create({
   },
 
   slot: { marginBottom: 12 },
+  slotHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   slotLabel: {
     fontSize: 11,
     fontWeight: "700",
     color: "#5f6368",
     letterSpacing: 1,
-    marginBottom: 6,
+    flex: 1,
   },
+  lockBtn: { paddingHorizontal: 6, paddingVertical: 2 },
+  lockBtnText: { fontSize: 11, color: "#5f6368", fontWeight: "600" },
   recipeRow: {
     flexDirection: "row",
     alignItems: "center",
