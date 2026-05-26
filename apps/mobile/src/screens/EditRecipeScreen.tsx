@@ -34,7 +34,7 @@ export function EditRecipeScreen({ recipeId, onBack, onSaved }: Props) {
         supabase
           .from("recipes")
           .select(
-            "title, description, base_servings, total_min, source_url, notes",
+            "title, description, base_servings, total_min, source_url, notes, image_path",
           )
           .eq("id", recipeId)
           .single(),
@@ -63,6 +63,7 @@ export function EditRecipeScreen({ recipeId, onBack, onSaved }: Props) {
         total_min: recipe.total_min,
         source_url: recipe.source_url,
         notes: recipe.notes,
+        image_path: recipe.image_path,
         ingredients: (ing.data ?? []).map((row: any) => ({
           raw_text: row.raw_text,
           is_optional: !!row.is_optional,
@@ -86,6 +87,7 @@ export function EditRecipeScreen({ recipeId, onBack, onSaved }: Props) {
         total_min: draft.total_min,
         source_url: draft.source_url,
         notes: draft.notes,
+        image_path: draft.image_path,
         updated_at: new Date().toISOString(),
       })
       .eq("id", recipeId);

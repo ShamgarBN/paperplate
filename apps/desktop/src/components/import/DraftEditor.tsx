@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/lib/cn";
-import { saveLocalImage, saveLocalImageFromPath } from "@/lib/scraping/api";
+import { uploadFile, uploadFromPath } from "@/lib/uploadImage";
 import { localImageUrl } from "@/lib/assetUrl";
 import {
   Select,
@@ -385,7 +385,7 @@ function ImagePanel({
     const file = files[0]!;
     setUploading(true);
     try {
-      const result = await saveLocalImage(file);
+      const result = await uploadFile(file);
       applySavedImage(result);
     } catch (err) {
       reportSaveError(err);
@@ -397,7 +397,7 @@ function ImagePanel({
   const handleDroppedPath = async (path: string) => {
     setUploading(true);
     try {
-      const result = await saveLocalImageFromPath(path);
+      const result = await uploadFromPath(path);
       applySavedImage(result);
     } catch (err) {
       reportSaveError(err);

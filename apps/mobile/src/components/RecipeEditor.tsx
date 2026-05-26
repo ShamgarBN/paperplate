@@ -8,6 +8,8 @@
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,6 +20,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { supabase } from "../lib/supabase";
 
 export interface IngredientDraft {
   raw_text: string;
@@ -35,6 +39,7 @@ export interface RecipeDraft {
   total_min: number | null;
   source_url: string | null;
   notes: string | null;
+  image_path: string | null;
   ingredients: IngredientDraft[];
   steps: StepDraft[];
 }
@@ -46,6 +51,7 @@ export interface RecipeEditorInitial {
   total_min?: number | null;
   source_url?: string | null;
   notes?: string | null;
+  image_path?: string | null;
   ingredients?: IngredientDraft[];
   steps?: StepDraft[];
 }
@@ -77,6 +83,10 @@ export function RecipeEditor({
   );
   const [sourceUrl, setSourceUrl] = useState(initial.source_url ?? "");
   const [notes, setNotes] = useState(initial.notes ?? "");
+  const [imagePath, setImagePath] = useState<string | null>(
+    initial.image_path ?? null,
+  );
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [ingredients, setIngredients] = useState<IngredientDraft[]>(
     initial.ingredients && initial.ingredients.length > 0
       ? initial.ingredients
@@ -120,6 +130,67 @@ export function RecipeEditor({
     );
   }
 
+  async function pickAndUploadImage() {
+    if (uploadingImage) return;
+
+    // Request library permission only on native; on web ImagePicker uses an
+    // <input type="file"> under the hood and skips this check.
+    if (Platform.OS !== "web") {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert("Permission needed", "Allow photo library access to pick an image.");
+        return;
+      }
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      quality: 0.85,
+      // Don't allow editing; preserves the user's chosen aspect ratio and
+      // avoids the cropping UI which is iPad-clunky.
+      allowsEditing: false,
+    });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    if (!asset) return;
+
+    setUploadingImage(true);
+    try {
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      const arrayBuf = await blob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      // Cap at 8 MB to match desktop's MAX_IMAGE_BYTES.
+      if (bytes.byteLength > 8 * 1024 * 1024) {
+        Alert.alert(
+          "Image too large",
+          `Max is 8 MB; this one is ${(bytes.byteLength / (1024 * 1024)).toFixed(1)} MB.`,
+        );
+        setUploadingImage(false);
+        return;
+      }
+      const mime =
+        asset.mimeType ?? blob.type ?? guessMimeFromUri(asset.uri) ?? "image/jpeg";
+      const ext = MIME_TO_EXT[mime.toLowerCase()] ?? "jpg";
+      const hash = await sha256Hex(bytes);
+      const key = `recipes/${hash.slice(0, 16)}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("recipe-images")
+        .upload(key, bytes, { contentType: mime, upsert: true });
+      if (upErr) throw upErr;
+
+      const { data: pub } = supabase.storage
+        .from("recipe-images")
+        .getPublicUrl(key);
+      setImagePath(pub.publicUrl);
+    } catch (err) {
+      Alert.alert("Upload failed", (err as Error).message);
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   const canSave =
     title.trim().length > 0 &&
     !Number.isNaN(Number(servings)) &&
@@ -136,6 +207,7 @@ export function RecipeEditor({
       total_min: tm != null && !Number.isNaN(tm) ? tm : null,
       source_url: sourceUrl.trim() || null,
       notes: notes.trim() || null,
+      image_path: imagePath,
       ingredients: ingredients.filter((i) => i.raw_text.trim().length > 0),
       steps: steps.filter((s) => s.text.trim().length > 0),
     };
@@ -175,6 +247,50 @@ export function RecipeEditor({
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
+          <Text style={styles.label}>Photo</Text>
+          <View style={styles.imageBlock}>
+            {imagePath ? (
+              <Image
+                source={{ uri: imagePath }}
+                style={styles.imagePreview}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={[styles.imagePreview, styles.imagePlaceholder]}>
+                <Text style={styles.imagePlaceholderText}>
+                  No photo yet
+                </Text>
+              </View>
+            )}
+            <View style={styles.imageBtnRow}>
+              <Pressable
+                style={[
+                  styles.imageBtn,
+                  uploadingImage && styles.imageBtnDisabled,
+                ]}
+                onPress={pickAndUploadImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.imageBtnText}>
+                    {imagePath ? "Replace photo" : "Choose photo"}
+                  </Text>
+                )}
+              </Pressable>
+              {imagePath ? (
+                <Pressable
+                  style={styles.imageRemoveBtn}
+                  onPress={() => setImagePath(null)}
+                  disabled={uploadingImage}
+                >
+                  <Text style={styles.imageRemoveBtnText}>Remove</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+
           <Text style={styles.label}>Title *</Text>
           <TextInput
             style={styles.input}
@@ -293,6 +409,45 @@ export function RecipeEditor({
   );
 }
 
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes as unknown as ArrayBuffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function guessMimeFromUri(uri: string): string | null {
+  const m = uri.toLowerCase().match(/\.(jpe?g|png|webp|gif|avif|heic)(?:\?|#|$)/);
+  if (!m) return null;
+  switch (m[1]) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "png":
+      return "image/png";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "avif":
+      return "image/avif";
+    case "heic":
+      return "image/heic";
+    default:
+      return null;
+  }
+}
+
+const MIME_TO_EXT: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/avif": "avif",
+  "image/heic": "heic",
+};
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#f4ede0" },
   header: {
@@ -340,6 +495,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#202124",
   },
+  imageBlock: { marginBottom: 4 },
+  imagePreview: {
+    width: "100%",
+    aspectRatio: 16 / 9,
+    borderRadius: 12,
+    backgroundColor: "#e6dec9",
+  },
+  imagePlaceholder: { alignItems: "center", justifyContent: "center" },
+  imagePlaceholderText: { color: "#9a8c6f", fontSize: 14 },
+  imageBtnRow: { flexDirection: "row", marginTop: 8 },
+  imageBtn: {
+    backgroundColor: "#2e6f70",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+    minWidth: 130,
+  },
+  imageBtnDisabled: { opacity: 0.6 },
+  imageBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  imageRemoveBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginLeft: 8,
+  },
+  imageRemoveBtnText: { color: "#b3261e", fontSize: 14, fontWeight: "600" },
   multiline: { minHeight: 60, textAlignVertical: "top" },
   row2col: { flexDirection: "row" },
 

@@ -79,6 +79,7 @@ export function AddRecipeScreen({ onBack, onCreated }: Props) {
       base_servings: r.servings ?? 4,
       total_min: r.totalMinutes,
       source_url: r.sourceUrl,
+      image_path: (r as { imageUrl?: string | null }).imageUrl ?? null,
       ingredients: r.rawIngredients.map((raw_text) => ({
         raw_text,
         is_optional: false,
@@ -103,6 +104,7 @@ export function AddRecipeScreen({ onBack, onCreated }: Props) {
         total_min: draft.total_min,
         source_url: draft.source_url,
         notes: draft.notes,
+        image_path: draft.image_path,
       })
       .select("id")
       .single();
