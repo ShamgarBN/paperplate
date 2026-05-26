@@ -130,8 +130,8 @@ export function recipePrintHtml(
 // ----- Shopping list -----
 
 interface ShoppingItemForPrint {
-  name: string;
-  quantity: string | null;
+  /** Pre-formatted "1½ cup flour" string. */
+  display: string;
   isOptional: boolean;
 }
 
@@ -154,9 +154,9 @@ export function shoppingListPrintHtml(
           (it) => `
         <li>
           <span class="box">&#9744;</span>
-          ${escapeHtml(it.name)}${
-            it.quantity ? ` <span class="qty">— ${escapeHtml(it.quantity)}</span>` : ""
-          }${it.isOptional ? ' <em style="color:#777">(optional)</em>' : ""}
+          ${escapeHtml(it.display)}${
+            it.isOptional ? ' <em style="color:#777">(optional)</em>' : ""
+          }
         </li>`,
         )
         .join("")}

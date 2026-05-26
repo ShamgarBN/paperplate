@@ -14,6 +14,12 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { RecipePickerModal } from "../components/RecipePickerModal";
+import {
+  autoSelect,
+  isPerishable,
+  type PlannerRecipe,
+  type PlannerSlot,
+} from "@paperplate/core";
 
 interface Plan {
   id: number;
@@ -26,6 +32,7 @@ interface Slot {
   id: number;
   date: string;
   slot: "breakfast" | "lunch" | "dinner";
+  recipe_id: number | null;
   scaled_servings: number | null;
   is_locked: boolean;
 }
@@ -79,7 +86,7 @@ export function PlanDetailScreen({
         .single(),
       supabase
         .from("meal_plan_slots")
-        .select("id, date, slot, scaled_servings, is_locked")
+        .select("id, date, slot, recipe_id, scaled_servings, is_locked")
         .eq("plan_id", planId)
         .order("date")
         .order("slot"),
@@ -203,6 +210,156 @@ export function PlanDetailScreen({
     await load();
   }
 
+  const [autoFilling, setAutoFilling] = useState(false);
+
+  /**
+   * Run the planner heuristic against every recipe in the library and the
+   * plan's current slots. Slots already locked are preserved (no
+   * reassignment), and "recently cooked" recipes are excluded by the
+   * heuristic's own hard rules. New attachments are written via
+   * meal_plan_slot_recipes.
+   */
+  async function runAutoFill() {
+    if (!slots || !plan || autoFilling) return;
+    setAutoFilling(true);
+    try {
+      // 1. Build PlannerRecipe[] from the full library.
+      const [recRes, ingRes, catRes] = await Promise.all([
+        supabase
+          .from("recipes")
+          .select("id, title, base_servings, last_cooked_at"),
+        supabase
+          .from("recipe_ingredients")
+          .select("recipe_id, item_canonical, is_optional"),
+        supabase
+          .from("recipe_categories")
+          .select("recipe_id, category:categories(kind, name)"),
+      ]);
+      if (recRes.error) throw recRes.error;
+      if (ingRes.error) throw ingRes.error;
+      if (catRes.error) throw catRes.error;
+
+      const ingByRecipe = new Map<number, string[]>();
+      for (const ing of (ingRes.data ?? []) as any[]) {
+        if (ing.is_optional || !ing.item_canonical) continue;
+        const arr = ingByRecipe.get(ing.recipe_id) ?? [];
+        arr.push(ing.item_canonical);
+        ingByRecipe.set(ing.recipe_id, arr);
+      }
+
+      const catsByRecipe = new Map<
+        number,
+        { kind: string; name: string }[]
+      >();
+      for (const row of (catRes.data ?? []) as any[]) {
+        const cat = Array.isArray(row.category) ? row.category[0] : row.category;
+        if (!cat) continue;
+        const arr = catsByRecipe.get(row.recipe_id) ?? [];
+        arr.push({ kind: cat.kind, name: cat.name });
+        catsByRecipe.set(row.recipe_id, arr);
+      }
+
+      const plannerRecipes: PlannerRecipe[] = ((recRes.data ?? []) as any[]).map(
+        (r) => {
+          const items = ingByRecipe.get(r.id) ?? [];
+          const canonical = new Set(items);
+          const perishable = new Set(items.filter((i) => isPerishable(i)));
+          const cats = catsByRecipe.get(r.id) ?? [];
+          const cuisine =
+            cats.find((c) => c.kind === "cuisine")?.name.toLowerCase() ?? null;
+          const proteins = cats
+            .filter((c) => c.kind === "protein")
+            .map((c) => c.name.toLowerCase());
+          const types = cats
+            .filter((c) => c.kind === "type")
+            .map((c) => c.name.toLowerCase());
+          return {
+            id: r.id,
+            title: r.title,
+            baseServings: r.base_servings,
+            cuisine,
+            proteins,
+            types,
+            canonicalIngredients: canonical,
+            perishableIngredients: perishable,
+            lastCookedAt: r.last_cooked_at,
+          };
+        },
+      );
+
+      // 2. Build PlannerSlot[] from current plan slots.
+      const plannerSlots: PlannerSlot[] = slots.map((s) => ({
+        id: s.id,
+        date: s.date,
+        slot: s.slot,
+        recipeId: s.recipe_id,
+        isLocked: !!s.is_locked,
+      }));
+
+      // 3. Run the heuristic with sensible defaults.
+      const result = autoSelect(plannerRecipes, plannerSlots, {
+        balance: 0.5,
+        varietyWeight: 1.0,
+        recentlyCookedDays: 14,
+        restarts: 24,
+      });
+
+      // 4. Apply assignments: for each non-locked slot, replace its
+      //    attachments with the heuristic's pick.
+      const recipesById = new Map(plannerRecipes.map((r) => [r.id, r]));
+      let updated = 0;
+      let cleared = 0;
+      for (const a of result.assignments) {
+        const slot = slots.find((s) => s.id === a.slotId);
+        if (!slot || slot.is_locked) continue;
+        // Wipe existing attachments on this slot.
+        await supabase
+          .from("meal_plan_slot_recipes")
+          .delete()
+          .eq("slot_id", a.slotId);
+        if (a.recipeId != null) {
+          const recipe = recipesById.get(a.recipeId);
+          await supabase.from("meal_plan_slot_recipes").insert({
+            slot_id: a.slotId,
+            recipe_id: a.recipeId,
+            scaled_servings: recipe?.baseServings ?? null,
+            position: 0,
+          });
+          // Keep the legacy slot.recipe_id mirror in sync too.
+          await supabase
+            .from("meal_plan_slots")
+            .update({
+              recipe_id: a.recipeId,
+              scaled_servings: recipe?.baseServings ?? null,
+            })
+            .eq("id", a.slotId);
+          updated += 1;
+        } else {
+          await supabase
+            .from("meal_plan_slots")
+            .update({ recipe_id: null, scaled_servings: null })
+            .eq("id", a.slotId);
+          cleared += 1;
+        }
+      }
+
+      await load();
+      const filled = result.assignments.filter((a) => a.recipeId != null).length;
+      const total = result.assignments.length;
+      Alert.alert(
+        "Auto-fill complete",
+        filled < total
+          ? `Filled ${filled} of ${total} slots — not enough variety to satisfy all constraints. ` +
+              `(${updated} updated, ${cleared} cleared)`
+          : `All ${total} slots assigned. (${updated} updated, ${cleared} cleared)`,
+      );
+    } catch (err) {
+      Alert.alert("Auto-fill failed", (err as Error).message);
+    } finally {
+      setAutoFilling(false);
+    }
+  }
+
   async function toggleSlotLock(slot: Slot) {
     const next = !slot.is_locked;
     // Optimistic update.
@@ -308,14 +465,30 @@ export function PlanDetailScreen({
           <Text style={styles.range}>
             {fmtLongDate(plan.start_date)} – {fmtLongDate(plan.end_date)}
           </Text>
-          <Pressable
-            onPress={onOpenShopping}
-            style={styles.shoppingListBtn}
-          >
-            <Text style={styles.shoppingListBtnText}>
-              🛒  Shopping list for this plan
-            </Text>
-          </Pressable>
+          <View style={styles.planActionsRow}>
+            <Pressable
+              onPress={onOpenShopping}
+              style={styles.shoppingListBtn}
+            >
+              <Text style={styles.shoppingListBtnText}>
+                🛒  Shopping list
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={runAutoFill}
+              disabled={autoFilling}
+              style={[
+                styles.autoFillBtn,
+                autoFilling && styles.autoFillBtnDisabled,
+              ]}
+            >
+              {autoFilling ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <Text style={styles.autoFillBtnText}>✨  Auto-fill</Text>
+              )}
+            </Pressable>
+          </View>
 
           {dates.map((date) => {
             const daySlots = slotsByDate.get(date) ?? [];
@@ -477,15 +650,25 @@ const styles = StyleSheet.create({
   scroll: { padding: 16, paddingBottom: 60 },
   title: { fontSize: 28, fontWeight: "700", color: "#202124", marginBottom: 4 },
   range: { fontSize: 14, color: "#5f6368", marginBottom: 14 },
+  planActionsRow: { flexDirection: "row", marginBottom: 20 },
   shoppingListBtn: {
     backgroundColor: "#2e6f70",
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
-    alignSelf: "flex-start",
-    marginBottom: 20,
+    marginRight: 8,
   },
   shoppingListBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  autoFillBtn: {
+    backgroundColor: "#5f8b8b",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  autoFillBtnDisabled: { opacity: 0.6 },
+  autoFillBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
 
   day: {
     backgroundColor: "#fff",

@@ -24,6 +24,12 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { printHtml, shoppingListPrintHtml } from "../lib/print";
+import {
+  buildShoppingList,
+  type MealPlanSlot,
+  type Recipe,
+  type RecipeIngredient,
+} from "@paperplate/core";
 
 interface Props {
   planId: number;
@@ -32,8 +38,7 @@ interface Props {
 
 interface ShoppingItem {
   id: string;
-  name: string;
-  quantity: string | null;
+  display: string;
   aisle: string;
   isOptional: boolean;
   contributors: string[];
@@ -104,38 +109,36 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
     const recipeIds = Array.from(
       new Set(attachments.map((a) => a.recipe_id as number)),
     );
-    const { data: ingredients, error: ingErr } = await supabase
-      .from("recipe_ingredients")
-      .select(
-        "recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, is_optional",
-      )
-      .in("recipe_id", recipeIds)
-      .order("position");
-    if (ingErr) {
-      setError(ingErr.message);
+
+    // Pull recipe rows and full ingredient records for the aggregator.
+    const [recipesResp, ingResp] = await Promise.all([
+      supabase.from("recipes").select("*").in("id", recipeIds),
+      supabase
+        .from("recipe_ingredients")
+        .select("*")
+        .in("recipe_id", recipeIds)
+        .order("position"),
+    ]);
+    if (recipesResp.error) {
+      setError(recipesResp.error.message);
       return;
     }
-
-    // recipe_id → scaling factor (target_servings / base_servings). When a
-    // slot has scaled_servings, that's the target; otherwise base.
-    interface ScaleSpec {
-      title: string;
-      maxFactor: number;
+    if (ingResp.error) {
+      setError(ingResp.error.message);
+      return;
     }
-    const scaleByRecipe = new Map<number, ScaleSpec>();
-    for (const a of attachments) {
-      const recipe = Array.isArray(a.recipe) ? a.recipe[0] : a.recipe;
-      if (!recipe) continue;
-      const base = (recipe.base_servings as number) || 1;
-      const target = (a.scaled_servings as number | null) ?? base;
-      const factor = target / base;
-      const existing = scaleByRecipe.get(a.recipe_id);
-      if (!existing || existing.maxFactor < factor) {
-        scaleByRecipe.set(a.recipe_id, {
-          title: recipe.title as string,
-          maxFactor: factor,
-        });
-      }
+    const recipesById = new Map<number, Recipe>();
+    for (const r of (recipesResp.data ?? []) as Recipe[]) {
+      recipesById.set(r.id, r);
+    }
+    const ingredientsByRecipeId = new Map<number, RecipeIngredient[]>();
+    for (const ing of ((ingResp.data ?? []) as any[]).map((row) => ({
+      ...row,
+      is_optional: row.is_optional ? 1 : 0,
+    })) as RecipeIngredient[]) {
+      const arr = ingredientsByRecipeId.get(ing.recipe_id) ?? [];
+      arr.push(ing);
+      ingredientsByRecipeId.set(ing.recipe_id, arr);
     }
 
     const aisleByCanonical = new Map<string, string>();
@@ -144,49 +147,38 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
       if (aisle?.name) aisleByCanonical.set(row.item_canonical, aisle.name);
     }
 
-    interface Accum {
-      name: string;
-      quantities: string[];
-      isOptional: boolean;
-      contributors: Set<string>;
-    }
-    const acc = new Map<string, Accum>();
-    for (const ing of (ingredients ?? []) as any[]) {
-      const spec = scaleByRecipe.get(ing.recipe_id);
-      if (!spec) continue;
-      const scaledQty =
-        ing.quantity != null
-          ? `${formatNumber(ing.quantity * spec.maxFactor)}${
-              ing.unit ? " " + ing.unit : ""
-            }`
-          : ing.raw_text || "";
-      const existing = acc.get(ing.item_canonical);
-      if (existing) {
-        if (scaledQty) existing.quantities.push(scaledQty);
-        if (ing.is_optional) existing.isOptional = true;
-        existing.contributors.add(spec.title);
-      } else {
-        acc.set(ing.item_canonical, {
-          name: ing.item_display || ing.item_canonical,
-          quantities: scaledQty ? [scaledQty] : [],
-          isOptional: !!ing.is_optional,
-          contributors: new Set([spec.title]),
-        });
-      }
-    }
+    // Each attachment becomes one virtual slot for the aggregator. Using
+    // the attachment id as the slot id keeps any pass-through ingredient
+    // ids unique across attachments.
+    const slots: MealPlanSlot[] = attachments.map((a) => ({
+      id: a.id,
+      plan_id: planId,
+      date: new Date().toISOString().slice(0, 10),
+      slot: "dinner",
+      recipe_id: a.recipe_id,
+      scaled_servings:
+        (a.scaled_servings as number | null) ??
+        recipesById.get(a.recipe_id)?.base_servings ??
+        null,
+      is_locked: 0,
+    }));
 
-    const items: ShoppingItem[] = Array.from(acc.entries()).map(
-      ([canonical, a]) => ({
-        // Plan-scoped id so checks here are isolated from the global list.
-        id: `plan-${planId}-agg-${canonical}`,
-        name: a.name,
-        quantity:
-          a.quantities.length > 0 ? a.quantities.join(" + ") : null,
-        aisle: aisleByCanonical.get(canonical) ?? "Other",
-        isOptional: a.isOptional,
-        contributors: Array.from(a.contributors),
-      }),
-    );
+    const aggregated = buildShoppingList({
+      slots,
+      recipesById,
+      ingredientsByRecipeId,
+      aisleByCanonical,
+    });
+
+    // Prefix item ids with `plan-{planId}-` so checks persisted here don't
+    // collide with the global list's check storage.
+    const items: ShoppingItem[] = aggregated.map((it) => ({
+      id: `plan-${planId}-${it.id}`,
+      display: it.display,
+      aisle: it.aisle,
+      isOptional: it.isOptional,
+      contributors: it.contributors,
+    }));
 
     const byAisle = new Map<string, ShoppingItem[]>();
     for (const it of items) {
@@ -197,7 +189,7 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
     const groupArr: AisleGroup[] = Array.from(byAisle.entries())
       .map(([aisle, its]) => ({
         aisle,
-        items: its.sort((a, b) => a.name.localeCompare(b.name)),
+        items: its.sort((a, b) => a.display.localeCompare(b.display)),
       }))
       .sort(
         (a, b) =>
@@ -448,21 +440,11 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
                             isChecked && styles.itemNameChecked,
                           ]}
                         >
-                          {it.name}
+                          {it.display}
                           {it.isOptional ? (
                             <Text style={styles.optional}> (optional)</Text>
                           ) : null}
                         </Text>
-                        {it.quantity ? (
-                          <Text
-                            style={[
-                              styles.itemQty,
-                              isChecked && styles.itemQtyChecked,
-                            ]}
-                          >
-                            {it.quantity}
-                          </Text>
-                        ) : null}
                         {it.contributors.length > 0 ? (
                           <Text style={styles.contributors} numberOfLines={1}>
                             for {it.contributors.join(", ")}

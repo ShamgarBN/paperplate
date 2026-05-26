@@ -28,11 +28,18 @@ import {
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
 import { printHtml, shoppingListPrintHtml } from "../lib/print";
+import {
+  buildShoppingList,
+  type MealPlanSlot,
+  type Recipe,
+  type RecipeIngredient,
+  type ShoppingItem as CoreShoppingItem,
+} from "@paperplate/core";
 
 interface ShoppingItem {
   id: string;
-  name: string;
-  quantity: string | null;
+  /** Aggregator's formatted display string ("1½ cup flour"). */
+  display: string;
   aisle: string;
   isOptional: boolean;
   contributors: string[];
@@ -130,83 +137,87 @@ export function ShoppingListScreen() {
       })),
     );
 
-    let ingredients: any[] = [];
+    // Build the inputs `buildShoppingList` expects: a recipe map, an
+    // ingredients-by-recipe map, and the aisle map. The aggregator then
+    // handles unit-merging, fraction formatting, indivisible rounding,
+    // and aisle assignment.
+    const recipesById = new Map<number, Recipe>();
+    const ingredientsByRecipeId = new Map<number, RecipeIngredient[]>();
     if (recipeIds.length > 0) {
-      const ing = await supabase
-        .from("recipe_ingredients")
-        .select(
-          "recipe_id, position, raw_text, quantity, unit, item_canonical, item_display, is_optional",
-        )
-        .in("recipe_id", recipeIds)
-        .order("position");
-      if (ing.error) {
-        setError(ing.error.message);
+      const [rResp, iResp] = await Promise.all([
+        supabase.from("recipes").select("*").in("id", recipeIds),
+        supabase
+          .from("recipe_ingredients")
+          .select("*")
+          .in("recipe_id", recipeIds)
+          .order("position"),
+      ]);
+      if (rResp.error) {
+        setError(rResp.error.message);
         return;
       }
-      ingredients = ing.data ?? [];
+      if (iResp.error) {
+        setError(iResp.error.message);
+        return;
+      }
+      for (const r of (rResp.data ?? []) as Recipe[]) {
+        recipesById.set(r.id, r);
+      }
+      // Supabase returns boolean is_optional; aggregator expects 0|1.
+      for (const ing of ((iResp.data ?? []) as any[]).map((row) => ({
+        ...row,
+        is_optional: row.is_optional ? 1 : 0,
+      })) as RecipeIngredient[]) {
+        const arr = ingredientsByRecipeId.get(ing.recipe_id) ?? [];
+        arr.push(ing);
+        ingredientsByRecipeId.set(ing.recipe_id, arr);
+      }
     }
 
     const aisleByCanonical = new Map<string, string>();
     for (const row of (aisleMap.data ?? []) as any[]) {
-      const aisleName = row.aisle?.name;
-      if (aisleName) aisleByCanonical.set(row.item_canonical, aisleName);
+      const aisle = Array.isArray(row.aisle) ? row.aisle[0] : row.aisle;
+      if (aisle?.name) aisleByCanonical.set(row.item_canonical, aisle.name);
     }
 
-    interface Accum {
-      name: string;
-      quantities: string[];
-      isOptional: boolean;
-      contributors: Set<string>;
-    }
-    const acc = new Map<string, Accum>();
-    const recipesByEntry = new Map<number, any>();
-    for (const e of entryRows) {
-      recipesByEntry.set(e.recipe_id, e.recipe);
-    }
+    // Shape each shopping-list recipe entry into a synthetic MealPlanSlot
+    // the aggregator can consume.
+    const slots: MealPlanSlot[] = entryRows.map((e, i) => ({
+      id: e.id ?? i + 1,
+      plan_id: 0,
+      date: (e.added_at ?? new Date().toISOString()).slice(0, 10),
+      slot: "dinner",
+      recipe_id: e.recipe_id,
+      scaled_servings:
+        e.scaled_servings ??
+        recipesById.get(e.recipe_id)?.base_servings ??
+        null,
+      is_locked: 0,
+    }));
 
-    for (const ing of ingredients) {
-      const recipe = recipesByEntry.get(ing.recipe_id);
-      const contributorTitle = recipe?.title ?? "Recipe";
-      const existing = acc.get(ing.item_canonical);
-      const qtyStr =
-        ing.quantity != null
-          ? `${formatNumber(ing.quantity)}${ing.unit ? " " + ing.unit : ""}`
-          : ing.raw_text || "";
-      if (existing) {
-        if (qtyStr) existing.quantities.push(qtyStr);
-        if (ing.is_optional) existing.isOptional = true;
-        existing.contributors.add(contributorTitle);
-      } else {
-        acc.set(ing.item_canonical, {
-          name: ing.item_display || ing.item_canonical,
-          quantities: qtyStr ? [qtyStr] : [],
-          isOptional: !!ing.is_optional,
-          contributors: new Set([contributorTitle]),
-        });
-      }
-    }
+    const aggregated: CoreShoppingItem[] = buildShoppingList({
+      slots,
+      recipesById,
+      ingredientsByRecipeId,
+      aisleByCanonical,
+    });
 
-    const items: ShoppingItem[] = [];
-    for (const [canonical, a] of acc) {
-      items.push({
-        id: `agg-${canonical}`,
-        name: a.name,
-        quantity: a.quantities.length > 0 ? a.quantities.join(" + ") : null,
-        aisle: aisleByCanonical.get(canonical) ?? "Other",
-        isOptional: a.isOptional,
-        contributors: Array.from(a.contributors),
-        isExtra: false,
-      });
-    }
+    const items: ShoppingItem[] = aggregated.map((it) => ({
+      id: it.id,
+      display: it.display,
+      aisle: it.aisle,
+      isOptional: it.isOptional,
+      contributors: it.contributors,
+      isExtra: false,
+    }));
 
     for (const x of (extras.data ?? []) as any[]) {
       items.push({
         id: `extra-${x.id}`,
-        name: x.name,
-        quantity:
+        display:
           x.quantity != null
-            ? `${formatNumber(x.quantity)}${x.unit ? " " + x.unit : ""}`
-            : null,
+            ? `${x.quantity}${x.unit ? " " + x.unit : ""} ${x.name}`
+            : x.name,
         aisle: x.aisle ?? "Other",
         isOptional: false,
         contributors: [],
@@ -223,7 +234,7 @@ export function ShoppingListScreen() {
     const groupArr: AisleGroup[] = Array.from(byAisle.entries())
       .map(([aisle, its]) => ({
         aisle,
-        items: its.sort((a, b) => a.name.localeCompare(b.name)),
+        items: its.sort((a, b) => a.display.localeCompare(b.display)),
       }))
       .sort(
         (a, b) =>
@@ -532,21 +543,11 @@ export function ShoppingListScreen() {
                             isChecked && styles.itemNameChecked,
                           ]}
                         >
-                          {it.name}
+                          {it.display}
                           {it.isOptional ? (
                             <Text style={styles.optional}> (optional)</Text>
                           ) : null}
                         </Text>
-                        {it.quantity ? (
-                          <Text
-                            style={[
-                              styles.itemQty,
-                              isChecked && styles.itemQtyChecked,
-                            ]}
-                          >
-                            {it.quantity}
-                          </Text>
-                        ) : null}
                         {it.contributors.length > 0 ? (
                           <Text style={styles.contributors} numberOfLines={1}>
                             for {it.contributors.join(", ")}
