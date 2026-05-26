@@ -1,6 +1,6 @@
 [package]
 name = "paperplate"
-version = "1.0.1"
+version = "2.0.0"
 description = "A locally-stored macOS digital recipe book."
 authors = ["Paperplate contributors"]
 edition = "2021"
