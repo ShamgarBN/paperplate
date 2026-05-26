@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:pwa": "tsc -b && BUILD_TARGET=pwa vite build",
+    "build:pwa": "tsc -b && BUILD_TARGET=pwa vite build && cp dist/index.html dist/404.html",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

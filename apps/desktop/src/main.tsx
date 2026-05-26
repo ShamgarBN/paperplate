@@ -9,7 +9,18 @@ import { Toaster } from "@/components/ui/Toaster";
 import { AuthGate } from "@/components/auth/AuthGate";
 import "@/styles/globals.css";
 
-const router = createRouter({ routeTree, defaultPreload: "intent" });
+// Vite sets `import.meta.env.BASE_URL` to whatever the build's `base`
+// config was — "/" inside Tauri, "/paperplate/" for the GitHub-Pages
+// PWA build. The router needs that prefix (without trailing slash) so
+// it doesn't try to match "/paperplate/library" against a route tree
+// that only knows "library".
+const basepath = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+const router = createRouter({
+  routeTree,
+  basepath: basepath || undefined,
+  defaultPreload: "intent",
+});
 
 declare module "@tanstack/react-router" {
   interface Register {
