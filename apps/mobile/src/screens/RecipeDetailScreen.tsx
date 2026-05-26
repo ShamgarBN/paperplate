@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { printHtml, recipePrintHtml } from "../lib/print";
 
 interface Recipe {
   id: number;
@@ -138,6 +139,18 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
     }
     setRecipe({ ...recipe, last_cooked_at: now });
     setCookedState("marked");
+  }
+
+  function handlePrint() {
+    if (!recipe || !ingredients || !steps || servings == null) return;
+    const html = recipePrintHtml(
+      recipe,
+      ingredients,
+      steps,
+      scaleFactor,
+      servings,
+    );
+    void printHtml(html, recipe.title);
   }
 
   async function addToShoppingList() {
@@ -296,6 +309,12 @@ export function RecipeDetailScreen({ recipeId, onBack, onEdit, reloadKey }: Prop
                 {addedState === "added" ? "Added ✓" : "Add to shopping list"}
               </Text>
             )}
+          </Pressable>
+          <Pressable
+            onPress={handlePrint}
+            style={[styles.actionBtn, styles.actionBtnTertiary]}
+          >
+            <Text style={styles.actionBtnText}>Print</Text>
           </Pressable>
         </View>
 
@@ -580,7 +599,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginRight: 8,
   },
-  actionBtnSecondary: { marginRight: 0, marginLeft: 0, backgroundColor: "#5f8b8b" },
+  actionBtnSecondary: { backgroundColor: "#5f8b8b" },
+  actionBtnTertiary: { backgroundColor: "#7a8a8a", marginRight: 0 },
   actionBtnDone: { backgroundColor: "#7fb069" },
   actionBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
 

@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { printHtml, shoppingListPrintHtml } from "../lib/print";
 
 interface Props {
   planId: number;
@@ -368,6 +369,20 @@ export function PlanShoppingListScreen({ planId, onBack }: Props) {
         <Text style={styles.subMeta}>
           {totalChecked} / {totalItems} checked
         </Text>
+        <Pressable
+          style={styles.printBtn}
+          onPress={() =>
+            printHtml(
+              shoppingListPrintHtml(
+                planName ? `Shopping list — ${planName}` : "Shopping list",
+                groups ?? [],
+              ),
+              "Plan shopping list",
+            )
+          }
+        >
+          <Text style={styles.printBtnText}>Print</Text>
+        </Pressable>
       </View>
       <ScrollView
         contentContainerStyle={styles.scroll}
@@ -519,7 +534,15 @@ const styles = StyleSheet.create({
     borderBottomColor: "#e6dec9",
   },
   subTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  subMeta: { color: "#5f6368", fontSize: 14 },
+  subMeta: { color: "#5f6368", fontSize: 14, marginRight: 12 },
+  printBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2e6f70",
+  },
+  printBtnText: { color: "#2e6f70", fontSize: 13, fontWeight: "600" },
 
   scroll: { padding: 16, paddingBottom: 60 },
 

@@ -27,6 +27,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native";
 import { supabase } from "../lib/supabase";
+import { printHtml, shoppingListPrintHtml } from "../lib/print";
 
 interface ShoppingItem {
   id: string;
@@ -358,6 +359,17 @@ export function ShoppingListScreen() {
         <Text style={styles.headerMeta}>
           {totalChecked} / {totalItems} checked
         </Text>
+        <Pressable
+          style={styles.printBtn}
+          onPress={() =>
+            printHtml(
+              shoppingListPrintHtml("Shopping list", groups ?? []),
+              "Shopping list",
+            )
+          }
+        >
+          <Text style={styles.printBtnText}>Print</Text>
+        </Pressable>
       </View>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -572,7 +584,15 @@ const styles = StyleSheet.create({
     alignItems: "baseline",
   },
   headerTitle: { fontSize: 28, fontWeight: "700", color: "#2e6f70", flex: 1 },
-  headerMeta: { color: "#5f6368", fontSize: 14 },
+  headerMeta: { color: "#5f6368", fontSize: 14, marginRight: 12 },
+  printBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#2e6f70",
+  },
+  printBtnText: { color: "#2e6f70", fontSize: 13, fontWeight: "600" },
 
   scroll: { padding: 16, paddingBottom: 60 },
 
