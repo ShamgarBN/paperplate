@@ -1,0 +1,74 @@
+name: Supabase heartbeat
+
+# Keep the free-tier Supabase project from being paused for inactivity.
+# Supabase pauses a free project after 7 days with no activity; we ping
+# every 3 days so the worst-case gap is well under that. Belt-and-braces:
+# we hit both PostgREST AND the auth endpoint so we exercise the two
+# subsystems Supabase's inactivity heuristic cares about most.
+#
+# Neither call needs a real session. The anon publishable key is the
+# same one shipped in the apps; it's safe to keep inline here.
+#
+# Manual trigger via the "Run workflow" button is enabled for ad-hoc
+# verification.
+
+on:
+  schedule:
+    # 06:00 UTC on day 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31 of every
+    # month. Max gap is 3 days (between day 28 and the next month's day 1
+    # we get at most a 4-day window for short months, but day 31 → day 1
+    # transition is only a 1-day gap so it averages well below).
+    - cron: "0 6 */3 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_URL: https://syoyddsbqsoptpcheuvy.supabase.co
+  # Publishable / anon key — same value the apps ship.
+  SUPABASE_ANON_KEY: sb_publishable_RyHpQRKzMVrN0A4gp-3KTw_HB2Okve7
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PostgREST ping (database read)
+        run: |
+          set -euo pipefail
+          # Read from the `aisles` table. RLS hides the rows from the
+          # anon role, so we get back an empty array, but the query
+          # still touches Postgres — which is what counts as activity.
+          status=$(curl -sS -o /tmp/postgrest.out -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/aisles?select=id&limit=1")
+          echo "PostgREST aisles → HTTP ${status}"
+          if [[ "$status" != "200" ]]; then
+            echo "WARN: unexpected PostgREST response"
+            head -c 500 /tmp/postgrest.out || true
+            exit 1
+          fi
+
+      - name: Auth ping
+        run: |
+          set -euo pipefail
+          # POST a deliberately-invalid login. Supabase returns 400 with
+          # invalid_credentials — which is the point: we exercised the
+          # auth subsystem (which queries auth.users) without actually
+          # authenticating anyone.
+          status=$(curl -sS -o /tmp/auth.out -w "%{http_code}" \
+            -X POST "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"email":"heartbeat@invalid.local","password":"never-a-real-user"}')
+          echo "Auth token → HTTP ${status}"
+          # 400 (invalid_credentials) is the expected, healthy outcome.
+          if [[ "$status" != "400" ]] && ! [[ "$status" =~ ^2 ]]; then
+            echo "WARN: unexpected auth response"
+            head -c 500 /tmp/auth.out || true
+          fi
+
+      - name: Summary
+        run: |
+          echo "Heartbeat complete at $(date -u +"%Y-%m-%dT%H:%M:%SZ")."
+          echo "Next scheduled run: in ~3 days."
