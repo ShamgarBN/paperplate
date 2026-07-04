@@ -1,24 +1,31 @@
 name: Supabase heartbeat
 
 # Keep the free-tier Supabase project from being paused for inactivity.
-# Supabase pauses a free project after 7 days with no activity; we ping
-# every 3 days so the worst-case gap is well under that. Belt-and-braces:
-# we hit both PostgREST AND the auth endpoint so we exercise the two
-# subsystems Supabase's inactivity heuristic cares about most.
 #
-# Neither call needs a real session. The anon publishable key is the
-# same one shipped in the apps; it's safe to keep inline here.
+# Supabase pauses free projects after 7 days without "sufficient
+# activity", and their heuristic doesn't count anon SELECTs or
+# intentionally-failing auth POSTs as enough. This workflow hits four
+# subsystems every 2 days with real operations:
 #
-# Manual trigger via the "Run workflow" button is enabled for ad-hoc
-# verification.
+#   1. Postgres write — INSERT to public.heartbeats (RLS + WITH CHECK
+#      restrict to source='github-heartbeat'). This is unambiguously
+#      DB activity.
+#   2. Postgres read — GET aisles (a small reference table). RLS hides
+#      the rows from anon but the query still runs.
+#   3. Edge function — invoke scrape-recipe with a stable public URL.
+#      Exercises the Deno runtime.
+#   4. Storage — HEAD the public recipe-images bucket root. Exercises
+#      the storage API.
+#
+# Every 2 days gives plenty of margin under the 7-day threshold and
+# survives any single failed run (next attempt is 2 days later, still
+# well before pause). Uses only the anon publishable key shipped in the
+# apps — no repo secret to manage.
 
 on:
   schedule:
-    # 06:00 UTC on day 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31 of every
-    # month. Max gap is 3 days (between day 28 and the next month's day 1
-    # we get at most a 4-day window for short months, but day 31 → day 1
-    # transition is only a 1-day gap so it averages well below).
-    - cron: "0 6 */3 * *"
+    # 06:00 UTC on days 1, 3, 5, 7, ... Worst-case gap is 2 days.
+    - cron: "0 6 */2 * *"
   workflow_dispatch:
 
 permissions:
@@ -26,49 +33,96 @@ permissions:
 
 env:
   SUPABASE_URL: https://syoyddsbqsoptpcheuvy.supabase.co
-  # Publishable / anon key — same value the apps ship.
   SUPABASE_ANON_KEY: sb_publishable_RyHpQRKzMVrN0A4gp-3KTw_HB2Okve7
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: PostgREST ping (database read)
+      - name: DB write — INSERT heartbeat row
         run: |
           set -euo pipefail
-          # Read from the `aisles` table. RLS hides the rows from the
-          # anon role, so we get back an empty array, but the query
-          # still touches Postgres — which is what counts as activity.
-          status=$(curl -sS -o /tmp/postgrest.out -w "%{http_code}" \
+          # Bare INSERT, no return preference — anon has INSERT policy
+          # but no SELECT policy, so asking for the row back would
+          # spuriously fail RLS.
+          status=$(curl -sS -o /tmp/hb.out -w "%{http_code}" \
+            -X POST "${SUPABASE_URL}/rest/v1/heartbeats" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
-            "${SUPABASE_URL}/rest/v1/aisles?select=id&limit=1")
-          echo "PostgREST aisles → HTTP ${status}"
-          if [[ "$status" != "200" ]]; then
-            echo "WARN: unexpected PostgREST response"
-            head -c 500 /tmp/postgrest.out || true
+            -H "Content-Type: application/json" \
+            -d '{"source":"github-heartbeat"}')
+          echo "INSERT heartbeats → HTTP ${status}"
+          if [[ "$status" != "201" ]]; then
+            echo "FAIL: expected 201, got ${status}"
+            head -c 500 /tmp/hb.out || true
             exit 1
           fi
 
-      - name: Auth ping
+      - name: DB read — SELECT aisles
         run: |
           set -euo pipefail
-          # POST a deliberately-invalid login. Supabase returns 400 with
-          # invalid_credentials — which is the point: we exercised the
-          # auth subsystem (which queries auth.users) without actually
-          # authenticating anyone.
+          status=$(curl -sS -o /tmp/aisles.out -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/rest/v1/aisles?select=id&limit=1")
+          echo "SELECT aisles → HTTP ${status}"
+          if [[ "$status" != "200" ]]; then
+            echo "FAIL: expected 200, got ${status}"
+            head -c 500 /tmp/aisles.out || true
+            exit 1
+          fi
+
+      - name: Edge function — scrape-recipe against example.com
+        run: |
+          set -euo pipefail
+          # example.com is a stable ~1KB response. We don't care about
+          # the extracted-recipe result; the invocation is the point.
+          status=$(curl -sS -o /tmp/fn.out -w "%{http_code}" \
+            -X POST "${SUPABASE_URL}/functions/v1/scrape-recipe" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"url":"https://example.com"}')
+          echo "Edge fn scrape-recipe → HTTP ${status}"
+          # Any 2xx is fine (either "ok:true" or "ok:false, no recipe
+          # found" both return 200). Non-2xx = misconfiguration or
+          # infrastructure issue we want to know about.
+          if ! [[ "$status" =~ ^2 ]]; then
+            echo "FAIL: expected 2xx, got ${status}"
+            head -c 500 /tmp/fn.out || true
+            exit 1
+          fi
+
+      - name: Storage — HEAD public recipe-images bucket
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o /tmp/storage.out -w "%{http_code}" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            "${SUPABASE_URL}/storage/v1/bucket/recipe-images")
+          echo "GET storage bucket → HTTP ${status}"
+          if [[ "$status" != "200" ]]; then
+            echo "FAIL: expected 200, got ${status}"
+            head -c 500 /tmp/storage.out || true
+            exit 1
+          fi
+
+      - name: Auth — hit token endpoint with invalid creds
+        run: |
+          set -euo pipefail
+          # 400 with invalid_credentials confirms the auth subsystem
+          # queried auth.users; also exercises GoTrue.
           status=$(curl -sS -o /tmp/auth.out -w "%{http_code}" \
             -X POST "${SUPABASE_URL}/auth/v1/token?grant_type=password" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Content-Type: application/json" \
             -d '{"email":"heartbeat@invalid.local","password":"never-a-real-user"}')
           echo "Auth token → HTTP ${status}"
-          # 400 (invalid_credentials) is the expected, healthy outcome.
           if [[ "$status" != "400" ]] && ! [[ "$status" =~ ^2 ]]; then
-            echo "WARN: unexpected auth response"
+            echo "FAIL: unexpected status ${status}"
             head -c 500 /tmp/auth.out || true
+            exit 1
           fi
 
       - name: Summary
         run: |
           echo "Heartbeat complete at $(date -u +"%Y-%m-%dT%H:%M:%SZ")."
-          echo "Next scheduled run: in ~3 days."
+          echo "Exercised: Postgres (write+read), Edge fn, Storage, Auth."
+          echo "Next scheduled run: ~2 days."
