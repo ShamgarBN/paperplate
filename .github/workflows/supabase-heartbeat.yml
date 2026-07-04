@@ -91,13 +91,20 @@ jobs:
             exit 1
           fi
 
-      - name: Storage — HEAD public recipe-images bucket
+      - name: Storage — list recipe-images bucket
         run: |
           set -euo pipefail
+          # POST /object/list/<bucket> is the anon-safe way to touch
+          # storage: bucket admin endpoints (/bucket/<name>) require
+          # elevated auth. This just asks for one object; RLS decides
+          # what's visible.
           status=$(curl -sS -o /tmp/storage.out -w "%{http_code}" \
+            -X POST "${SUPABASE_URL}/storage/v1/object/list/recipe-images" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
-            "${SUPABASE_URL}/storage/v1/bucket/recipe-images")
-          echo "GET storage bucket → HTTP ${status}"
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"limit":1,"prefix":""}')
+          echo "List storage bucket → HTTP ${status}"
           if [[ "$status" != "200" ]]; then
             echo "FAIL: expected 200, got ${status}"
             head -c 500 /tmp/storage.out || true
